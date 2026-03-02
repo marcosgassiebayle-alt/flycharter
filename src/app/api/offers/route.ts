@@ -13,6 +13,8 @@ export async function GET(request: Request) {
     const status = url.searchParams.get("status");
     const category = url.searchParams.get("category");
     const emptyLeg = url.searchParams.get("emptyLeg");
+    const featured = url.searchParams.get("featured");
+    const limit = url.searchParams.get("limit");
     const sortBy = url.searchParams.get("sortBy");
 
     const where: Record<string, unknown> = {};
@@ -30,6 +32,7 @@ export async function GET(request: Request) {
     if (vehicleType) where.vehicleType = vehicleType;
     if (category) where.category = category;
     if (emptyLeg === "true") where.isEmptyLeg = true;
+    if (featured === "true") where.featured = true;
 
     let orderBy: Record<string, string> = { departureAt: "asc" };
     if (sortBy === "price_asc") orderBy = { basePrice: "asc" };
@@ -54,6 +57,7 @@ export async function GET(request: Request) {
         _count: { select: { bookings: true } },
       },
       orderBy,
+      take: limit ? parseInt(limit) : undefined,
     });
 
     return NextResponse.json({ offers });

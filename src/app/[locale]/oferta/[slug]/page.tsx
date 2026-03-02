@@ -1,76 +1,74 @@
-import { getTranslations } from "next-intl/server";
+import { notFound } from "next/navigation";
 import { Metadata } from "next";
+import prisma from "@/lib/prisma";
 import { OfferDetailClient } from "./OfferDetailClient";
 
 type Props = {
   params: Promise<{ slug: string; locale: string }>;
 };
 
-const mockOffer = {
-  id: "p1",
-  slug: "buenos-aires-bariloche-2026-03-15-a1b2",
-  vehicleType: "PLANE" as const,
-  category: "ONE_WAY" as const,
-  status: "ACTIVE" as const,
-  origin: "Buenos Aires",
-  originCode: "AEP",
-  destination: "San Carlos de Bariloche",
-  destinationCode: "BRC",
-  departureAt: "2026-03-15T10:00:00Z",
-  returnAt: null,
-  basePrice: 12500,
-  minPrice: 8500,
-  isEmptyLeg: true,
-  discountType: "linear",
-  discountRules: {
-    maxDiscountPercent: 32,
-    startDaysBefore: 30,
-  },
-  featured: true,
-  cancellationPolicy:
-    "Cancelacion gratuita hasta 72 horas antes de la salida. Despues de ese plazo, se retiene el 50% del monto total.",
-  notes: "Vuelo de reposicion. Posibilidad de flexibilidad horaria. Equipaje limitado a 20kg por pasajero.",
-  aircraft: {
-    id: "ac1",
-    model: "Beechcraft King Air 350",
-    type: "PLANE" as const,
-    capacity: 8,
-    yearBuilt: 2019,
-    registration: "LV-ABC",
-    description:
-      "Turbohelice bimotor presurizado con cabina amplia y confortable. Ideal para vuelos regionales de hasta 4 horas.",
-    images: [],
-    amenities: [
-      "WiFi a bordo",
-      "Asientos de cuero reclinables",
-      "Aire acondicionado",
-      "Toilette privado",
-      "Catering disponible",
-    ],
-  },
-  operator: {
-    id: "op1",
-    name: "Carlos Menendez",
-    companyName: "Andes Aviation",
-    verified: true,
-    description:
-      "Operador con mas de 15 anos de experiencia en vuelos charter por toda Argentina. Flota moderna y mantenimiento certificado.",
-    profileImage: null,
-  },
-};
+async function getOffer(slug: string) {
+  try {
+    const offer = await prisma.offer.findUnique({
+      where: { slug },
+      include: {
+        aircraft: true,
+        operator: {
+          select: {
+            id: true,
+            name: true,
+            companyName: true,
+            verified: true,
+            description: true,
+            profileImage: true,
+          },
+        },
+      },
+    });
+    return offer;
+  } catch {
+    return null;
+  }
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
+  const offer = await getOffer(slug);
+  if (!offer) {
+    return { title: "Vuelo no encontrado | FlyCharter" };
+  }
   return {
-    title: `${mockOffer.origin} - ${mockOffer.destination || "Tour"} | FlyCharter`,
-    description: `Vuelo privado de ${mockOffer.origin} a ${mockOffer.destination || "tour"} en ${mockOffer.aircraft.model}. Desde $${mockOffer.minPrice} USD.`,
+    title: `${offer.originCode ?? offer.origin} → ${offer.destinationCode ?? offer.destination ?? "Tour"} | FlyCharter`,
+    description: `Vuelo privado en ${offer.aircraft.model}. Desde $${offer.minPrice} USD.`,
   };
 }
 
 export default async function OfferDetailPage({ params }: Props) {
   const { slug } = await params;
-  const t = await getTranslations("offers");
-  const tPricing = await getTranslations("pricing");
+  const offer = await getOffer(slug);
 
-  return <OfferDetailClient offer={mockOffer} />;
+  if (!offer) {
+    notFound();
+  }
+
+  const offerData = {
+    ...offer,
+    departureAt: offer.departureAt.toISOString(),
+    returnAt: offer.returnAt ? offer.returnAt.toISOString() : null,
+    originCode: offer.originCode ?? null,
+    aircraft: {
+      ...offer.aircraft,
+      yearBuilt: offer.aircraft.yearBuilt ?? null,
+      registration: offer.aircraft.registration ?? null,
+      description: offer.aircraft.description ?? null,
+    },
+    operator: {
+      ...offer.operator,
+      companyName: offer.operator.companyName ?? null,
+      description: offer.operator.description ?? null,
+      profileImage: offer.operator.profileImage ?? null,
+    },
+  };
+
+  return <OfferDetailClient offer={offerData} />;
 }
