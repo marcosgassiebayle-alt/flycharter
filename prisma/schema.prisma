@@ -1,0 +1,209 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum VehicleType {
+  PLANE
+  HELICOPTER
+}
+
+enum OfferCategory {
+  TOUR
+  ROUND_TRIP
+  ONE_WAY
+  RETURN
+}
+
+enum OfferStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  REFUNDED
+}
+
+enum RequestStatus {
+  OPEN
+  BOOKED
+  EXPIRED
+  CANCELLED
+}
+
+enum BidStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+model Operator {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  passwordHash    String
+  name            String
+  companyName     String?
+  phone           String?
+  description     String?   @db.Text
+  profileImage    String?
+  stripeAccountId String?
+  stripeOnboarded Boolean   @default(false)
+  verified        Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  aircraft        Aircraft[]
+  offers          Offer[]
+  bids            Bid[]
+  chatMessages    ChatMessage[]
+}
+
+model Aircraft {
+  id           String      @id @default(cuid())
+  operatorId   String
+  operator     Operator    @relation(fields: [operatorId], references: [id])
+  type         VehicleType
+  model        String
+  description  String?     @db.Text
+  capacity     Int
+  images       String[]
+  yearBuilt    Int?
+  registration String?
+  amenities    String[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  offers       Offer[]
+  bids         Bid[]
+}
+
+model Offer {
+  id              String        @id @default(cuid())
+  operatorId      String
+  operator        Operator      @relation(fields: [operatorId], references: [id])
+  aircraftId      String
+  aircraft        Aircraft      @relation(fields: [aircraftId], references: [id])
+  status          OfferStatus   @default(ACTIVE)
+  category        OfferCategory
+  vehicleType     VehicleType
+  origin          String
+  originCode      String?
+  originLat       Float?
+  originLng       Float?
+  destination     String?
+  destinationCode String?
+  destinationLat  Float?
+  destinationLng  Float?
+  departureAt     DateTime
+  returnAt        DateTime?
+  basePrice       Float
+  minPrice        Float
+  isEmptyLeg      Boolean       @default(false)
+  discountType    String?
+  discountRules   Json?
+  cancellationPolicy String?    @db.Text
+  notes           String?       @db.Text
+  slug            String        @unique
+  featured        Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  bookings        Booking[]
+  @@index([status, vehicleType])
+  @@index([departureAt])
+}
+
+model Booking {
+  id                    String        @id @default(cuid())
+  offerId               String?
+  offer                 Offer?        @relation(fields: [offerId], references: [id])
+  bidId                 String?       @unique
+  bid                   Bid?          @relation(fields: [bidId], references: [id])
+  customerEmail         String
+  customerName          String
+  customerPhone         String?
+  passengersCount       Int
+  totalAmount           Float
+  platformFee           Float
+  operatorAmount        Float
+  stripePaymentIntentId String?
+  stripeSessionId       String?
+  status                BookingStatus @default(PENDING)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  chatRoom              ChatRoom?
+}
+
+model FlightRequest {
+  id              String        @id @default(cuid())
+  customerEmail   String
+  customerName    String
+  customerPhone   String?
+  vehicleType     VehicleType?
+  category        OfferCategory
+  origin          String
+  originCode      String?
+  destination     String?
+  destinationCode String?
+  departureDate   DateTime
+  returnDate      DateTime?
+  passengersCount Int
+  budgetMin       Float?
+  budgetMax       Float?
+  notes           String?       @db.Text
+  status          RequestStatus @default(OPEN)
+  expiresAt       DateTime
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  bids            Bid[]
+  @@index([status])
+  @@index([departureDate])
+}
+
+model Bid {
+  id          String      @id @default(cuid())
+  requestId   String
+  request     FlightRequest @relation(fields: [requestId], references: [id])
+  operatorId  String
+  operator    Operator    @relation(fields: [operatorId], references: [id])
+  aircraftId  String
+  aircraft    Aircraft    @relation(fields: [aircraftId], references: [id])
+  price       Float
+  message     String?     @db.Text
+  departureAt DateTime
+  returnAt    DateTime?
+  status      BidStatus   @default(PENDING)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  booking     Booking?
+  @@unique([requestId, operatorId])
+  @@index([requestId, status])
+}
+
+model ChatRoom {
+  id        String        @id @default(cuid())
+  bookingId String        @unique
+  booking   Booking       @relation(fields: [bookingId], references: [id])
+  createdAt DateTime      @default(now())
+  messages  ChatMessage[]
+}
+
+model ChatMessage {
+  id         String    @id @default(cuid())
+  roomId     String
+  room       ChatRoom  @relation(fields: [roomId], references: [id])
+  senderType String
+  senderId   String?
+  operator   Operator? @relation(fields: [senderId], references: [id])
+  content    String    @db.Text
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+  @@index([roomId, createdAt])
+}
