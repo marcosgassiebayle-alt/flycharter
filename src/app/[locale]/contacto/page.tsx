@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Mail, Phone, Clock, CheckCircle, Send } from "lucide-react";
+import { Mail, Clock, CheckCircle, Send } from "lucide-react";
 
 export default function ContactPage() {
   const t = useTranslations("contact");
@@ -29,6 +29,7 @@ export default function ContactPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.subject) return;
     setLoading(true);
     try {
       await fetch("/api/contact", {
@@ -155,13 +156,13 @@ export default function ContactPage() {
             </div>
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-brand-primary/10 flex items-center justify-center">
-                <Phone className="h-5 w-5 text-brand-primary" />
+                <Mail className="h-5 w-5 text-brand-primary" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">
                   {t("whatsapp")}
                 </p>
-                <p className="font-semibold">+54 11 XXXX-XXXX</p>
+                <p className="font-semibold">soporte@flycharter.com.ar</p>
               </div>
             </div>
             <div className="flex items-center gap-4">

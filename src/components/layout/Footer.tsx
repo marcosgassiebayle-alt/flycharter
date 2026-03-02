@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
-import { Plane, Mail, Phone } from "lucide-react";
+import { Plane, Mail } from "lucide-react";
 
 export function Footer() {
   const t = useTranslations("footer");
@@ -100,8 +100,8 @@ export function Footer() {
                 info@flycharter.com.ar
               </li>
               <li className="flex items-center gap-2 text-white/70 text-sm">
-                <Phone className="h-4 w-4" />
-                +54 11 XXXX-XXXX
+                <Mail className="h-4 w-4" />
+                soporte@flycharter.com.ar
               </li>
             </ul>
           </div>

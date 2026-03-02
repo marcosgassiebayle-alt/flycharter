@@ -161,6 +161,7 @@
     "exponential": "Exponential",
     "daysBeforeDeparture": "Days before departure",
     "discountPercent": "Discount %",
+    "days": "days",
     "addTier": "Add tier",
     "removeTier": "Remove",
     "maxDiscount": "Maximum discount (%)",
@@ -299,7 +300,7 @@
     "sentDesc": "We will get back to you shortly.",
     "directContact": "Direct contact",
     "emailLabel": "Email",
-    "whatsapp": "WhatsApp",
+    "whatsapp": "Support",
     "officeHours": "Office hours",
     "officeHoursValue": "Monday to Friday, 9 AM to 6 PM"
   },

@@ -770,7 +770,7 @@ export default function PublishPage() {
                     <tbody>
                       {getPricePreview().map((row) => (
                         <tr key={row.days} className="border-b last:border-0">
-                          <td className="py-2 px-3">{row.days} días</td>
+                          <td className="py-2 px-3">{row.days} {t("days")}</td>
                           <td className="py-2 px-3 text-right">
                             {row.discount > 0 && (
                               <Badge

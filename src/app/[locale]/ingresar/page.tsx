@@ -62,8 +62,9 @@ export default function LoginPage() {
               )}
 
               <div>
-                <Label>{t("email")}</Label>
+                <Label htmlFor="email">{t("email")}</Label>
                 <Input
+                  id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -72,8 +73,9 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <Label>{t("password")}</Label>
+                <Label htmlFor="password">{t("password")}</Label>
                 <Input
+                  id="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

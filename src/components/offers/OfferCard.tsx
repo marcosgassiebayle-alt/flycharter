@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,22 +42,21 @@ interface OfferCardProps {
 export function OfferCard({ offer, className }: OfferCardProps) {
   const t = useTranslations("offers");
   const tCommon = useTranslations("common");
+  const locale = useLocale();
+  const dateLocale = locale === "en" ? "en-US" : "es-AR";
 
   const departureDate = new Date(offer.departureAt);
-  const formattedDate = departureDate.toLocaleDateString("es-AR", {
+  const formattedDate = departureDate.toLocaleDateString(dateLocale, {
     weekday: "short",
     day: "numeric",
     month: "short",
   });
-  const formattedTime = departureDate.toLocaleTimeString("es-AR", {
+  const formattedTime = departureDate.toLocaleTimeString(dateLocale, {
     hour: "2-digit",
     minute: "2-digit",
   });
 
-  const linkPath =
-    offer.vehicleType === "PLANE"
-      ? `/aviones/${offer.slug}`
-      : `/helicopteros/${offer.slug}`;
+  const linkPath = `/oferta/${offer.slug}`;
 
   const hasDiscount = offer.minPrice < offer.basePrice;
 

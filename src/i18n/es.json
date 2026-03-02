@@ -161,6 +161,7 @@
     "exponential": "Exponencial",
     "daysBeforeDeparture": "Días antes de salida",
     "discountPercent": "% de descuento",
+    "days": "días",
     "addTier": "Agregar tramo",
     "removeTier": "Quitar",
     "maxDiscount": "Descuento máximo (%)",
@@ -299,7 +300,7 @@
     "sentDesc": "Te responderemos a la brevedad.",
     "directContact": "Contacto directo",
     "emailLabel": "Email",
-    "whatsapp": "WhatsApp",
+    "whatsapp": "Soporte",
     "officeHours": "Horarios de atención",
     "officeHoursValue": "Lunes a Viernes, 9 a 18 hs"
   },

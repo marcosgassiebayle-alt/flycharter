@@ -283,6 +283,7 @@ function RequestsEmptyState() {
 
 export function ListingsContent({ vehicleType }: ListingsContentProps) {
   const t = useTranslations("offers");
+  const tFilters = useTranslations("filters");
   const searchParams = useSearchParams();
   const queryString = searchParams.toString();
 
@@ -357,7 +358,7 @@ export function ListingsContent({ vehicleType }: ListingsContentProps) {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-heading font-semibold text-brand-secondary">Filtros</h3>
+                    <h3 className="font-heading font-semibold text-brand-secondary">{tFilters("title")}</h3>
                     <Button variant="ghost" size="icon-xs" onClick={() => setShowMobileFilters(false)}>
                       <span className="text-lg">&times;</span>
                     </Button>

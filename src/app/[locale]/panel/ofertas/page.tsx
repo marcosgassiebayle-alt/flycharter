@@ -1,11 +1,11 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { Link } from "@/i18n/routing";
 import useSWR from "swr";
 import { formatCurrency } from "@/lib/utils";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { es, enUS } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,6 +33,8 @@ const statusColors: Record<string, string> = {
 export default function MyOffersPage() {
   const t = useTranslations("offers");
   const tOp = useTranslations("operator");
+  const locale = useLocale();
+  const dateLocale = locale === "en" ? enUS : es;
   const { data, isLoading, mutate } = useSWR("/api/offers?mine=true", fetcher);
   const offers = data?.offers || [];
 
@@ -115,7 +117,7 @@ export default function MyOffersPage() {
                         {offer.origin as string}
                         {offer.destination
                           ? ` → ${offer.destination}`
-                          : " · Paseo"}
+                          : ` · ${t("tour")}`}
                       </span>
                     </div>
                     <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
@@ -124,7 +126,7 @@ export default function MyOffersPage() {
                         {format(
                           new Date(offer.departureAt as string),
                           "d MMM yyyy",
-                          { locale: es }
+                          { locale: dateLocale }
                         )}
                       </span>
                       <span className="font-mono font-semibold text-brand-primary">

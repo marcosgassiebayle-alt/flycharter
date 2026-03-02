@@ -78,8 +78,9 @@ export default function RegisterPage() {
               )}
 
               <div>
-                <Label>{t("name")}</Label>
+                <Label htmlFor="reg-name">{t("name")}</Label>
                 <Input
+                  id="reg-name"
                   value={form.name}
                   onChange={(e) =>
                     setForm((p) => ({ ...p, name: e.target.value }))
@@ -89,8 +90,9 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <Label>{t("companyName")}</Label>
+                <Label htmlFor="reg-company">{t("companyName")}</Label>
                 <Input
+                  id="reg-company"
                   value={form.companyName}
                   onChange={(e) =>
                     setForm((p) => ({ ...p, companyName: e.target.value }))
@@ -99,8 +101,9 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <Label>{t("email")}</Label>
+                <Label htmlFor="reg-email">{t("email")}</Label>
                 <Input
+                  id="reg-email"
                   type="email"
                   value={form.email}
                   onChange={(e) =>
@@ -111,8 +114,9 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <Label>{t("phone")}</Label>
+                <Label htmlFor="reg-phone">{t("phone")}</Label>
                 <Input
+                  id="reg-phone"
                   value={form.phone}
                   onChange={(e) =>
                     setForm((p) => ({ ...p, phone: e.target.value }))
@@ -121,8 +125,9 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <Label>{t("password")}</Label>
+                <Label htmlFor="reg-password">{t("password")}</Label>
                 <Input
+                  id="reg-password"
                   type="password"
                   value={form.password}
                   onChange={(e) =>
