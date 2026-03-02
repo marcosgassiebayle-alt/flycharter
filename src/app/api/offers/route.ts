@@ -54,6 +54,9 @@ export async function GET(request: Request) {
             profileImage: true,
           },
         },
+        legs: {
+          orderBy: { legOrder: "asc" },
+        },
         _count: { select: { bookings: true } },
       },
       orderBy,
@@ -139,6 +142,22 @@ export async function POST(request: Request) {
         },
       },
     });
+
+    // Create flight legs if provided
+    if (Array.isArray(offerData.legs) && offerData.legs.length > 0) {
+      await prisma.flightLeg.createMany({
+        data: offerData.legs.map((leg: { origin: string; originCode?: string; destination: string; destinationCode?: string; departureAt: string; arrivalAt?: string }, i: number) => ({
+          offerId: offer.id,
+          legOrder: i + 1,
+          origin: leg.origin,
+          originCode: leg.originCode || null,
+          destination: leg.destination,
+          destinationCode: leg.destinationCode || null,
+          departureAt: new Date(leg.departureAt),
+          arrivalAt: leg.arrivalAt ? new Date(leg.arrivalAt) : null,
+        })),
+      });
+    }
 
     return NextResponse.json(offer, { status: 201 });
   } catch (error) {

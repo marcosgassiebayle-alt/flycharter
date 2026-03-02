@@ -50,6 +50,16 @@ type OfferDetail = {
   featured: boolean;
   cancellationPolicy: string | null;
   notes: string | null;
+  legs?: Array<{
+    id: string;
+    legOrder: number;
+    origin: string;
+    originCode: string | null;
+    destination: string;
+    destinationCode: string | null;
+    departureAt: string;
+    arrivalAt: string | null;
+  }>;
   aircraft: {
     id: string;
     model: string;
@@ -355,6 +365,54 @@ export function OfferDetailClient({ offer }: OfferDetailClientProps) {
               )}
             </CardContent>
           </Card>
+
+          {/* Multi-leg itinerary */}
+          {offer.legs && offer.legs.length > 1 && (
+            <Card className="rounded-card border-surface-border shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-heading text-brand-secondary flex items-center gap-2">
+                  <MapPin className="size-4 text-brand-primary" />
+                  {t("itinerary")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="relative">
+                  {offer.legs
+                    .slice()
+                    .sort((a, b) => a.legOrder - b.legOrder)
+                    .map((leg, i) => {
+                      const depDate = new Date(leg.departureAt);
+                      return (
+                        <div key={leg.id} className="flex gap-3 pb-4 last:pb-0">
+                          {/* Timeline dot and line */}
+                          <div className="flex flex-col items-center">
+                            <div className="w-3 h-3 rounded-full bg-brand-primary shrink-0 mt-1" />
+                            {i < offer.legs!.length - 1 && (
+                              <div className="w-0.5 flex-1 bg-brand-primary/20 mt-1" />
+                            )}
+                          </div>
+                          {/* Leg info */}
+                          <div className="flex-1 pb-1">
+                            <p className="text-sm font-semibold text-foreground">
+                              {leg.origin}
+                              {leg.originCode && ` (${leg.originCode})`}
+                              {" → "}
+                              {leg.destination}
+                              {leg.destinationCode && ` (${leg.destinationCode})`}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {depDate.toLocaleDateString(dateLocale, { weekday: "short", day: "numeric", month: "short" })}
+                              {" "}
+                              {depDate.toLocaleTimeString(dateLocale, { hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Aircraft */}
           <Card className="rounded-card border-surface-border shadow-sm">

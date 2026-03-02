@@ -116,6 +116,7 @@ model Offer {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   bookings        Booking[]
+  legs            FlightLeg[]
   @@index([status, vehicleType])
   @@index([departureAt])
 }
@@ -163,8 +164,27 @@ model FlightRequest {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   bids            Bid[]
+  legs            FlightLeg[]
   @@index([status])
   @@index([departureDate])
+}
+
+model FlightLeg {
+  id              String         @id @default(cuid())
+  offerId         String?
+  offer           Offer?         @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  requestId       String?
+  request         FlightRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  legOrder        Int
+  origin          String
+  originCode      String?
+  destination     String
+  destinationCode String?
+  departureAt     DateTime
+  arrivalAt       DateTime?
+  createdAt       DateTime       @default(now())
+  @@index([offerId, legOrder])
+  @@index([requestId, legOrder])
 }
 
 model Bid {

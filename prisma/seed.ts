@@ -383,6 +383,72 @@ async function main() {
 
   console.log("Offers created");
 
+  // Multi-leg offers
+  const patagoniaCircuit = await prisma.offer.create({
+    data: {
+      operatorId: carlos.id,
+      aircraftId: kingAir.id,
+      category: "ONE_WAY",
+      vehicleType: "PLANE",
+      origin: "Aeropuerto de San Fernando",
+      originCode: "SFN",
+      originLat: -34.453,
+      originLng: -58.59,
+      destination: "Aeropuerto Internacional Malvinas Argentinas",
+      destinationCode: "USH",
+      destinationLat: -54.843,
+      destinationLng: -68.296,
+      departureAt: new Date("2026-05-10T08:00:00Z"),
+      basePrice: 45000,
+      minPrice: 45000,
+      isEmptyLeg: false,
+      slug: "sfn-brc-fte-ush-2026-05-10-multi",
+      featured: true,
+    },
+  });
+
+  await prisma.flightLeg.createMany({
+    data: [
+      { offerId: patagoniaCircuit.id, legOrder: 1, origin: "Aeropuerto de San Fernando", originCode: "SFN", destination: "Aeropuerto de Bariloche", destinationCode: "BRC", departureAt: new Date("2026-05-10T08:00:00Z") },
+      { offerId: patagoniaCircuit.id, legOrder: 2, origin: "Aeropuerto de Bariloche", originCode: "BRC", destination: "Aeropuerto de El Calafate", destinationCode: "FTE", departureAt: new Date("2026-05-12T09:00:00Z") },
+      { offerId: patagoniaCircuit.id, legOrder: 3, origin: "Aeropuerto de El Calafate", originCode: "FTE", destination: "Aeropuerto Internacional Malvinas Argentinas", destinationCode: "USH", departureAt: new Date("2026-05-14T10:00:00Z") },
+    ],
+  });
+
+  const norteTour = await prisma.offer.create({
+    data: {
+      operatorId: jorge.id,
+      aircraftId: learjet.id,
+      category: "ROUND_TRIP",
+      vehicleType: "PLANE",
+      origin: "Aeropuerto de San Fernando",
+      originCode: "SFN",
+      originLat: -34.453,
+      originLng: -58.59,
+      destination: "Aeropuerto de San Fernando",
+      destinationCode: "SFN",
+      destinationLat: -34.453,
+      destinationLng: -58.59,
+      departureAt: new Date("2026-05-20T07:00:00Z"),
+      returnAt: new Date("2026-05-25T18:00:00Z"),
+      basePrice: 38000,
+      minPrice: 38000,
+      isEmptyLeg: false,
+      slug: "sfn-igr-sla-sfn-2026-05-20-multi",
+      featured: false,
+    },
+  });
+
+  await prisma.flightLeg.createMany({
+    data: [
+      { offerId: norteTour.id, legOrder: 1, origin: "Aeropuerto de San Fernando", originCode: "SFN", destination: "Aeropuerto de Iguazú", destinationCode: "IGR", departureAt: new Date("2026-05-20T07:00:00Z") },
+      { offerId: norteTour.id, legOrder: 2, origin: "Aeropuerto de Iguazú", originCode: "IGR", destination: "Aeropuerto de Salta", destinationCode: "SLA", departureAt: new Date("2026-05-22T10:00:00Z") },
+      { offerId: norteTour.id, legOrder: 3, origin: "Aeropuerto de Salta", originCode: "SLA", destination: "Aeropuerto de San Fernando", destinationCode: "SFN", departureAt: new Date("2026-05-25T15:00:00Z") },
+    ],
+  });
+
+  console.log("Multi-leg offers created");
+
   // Flight Requests
   await prisma.flightRequest.createMany({
     data: [
@@ -441,6 +507,37 @@ async function main() {
   });
 
   console.log("Flight requests created");
+
+  // Multi-leg request
+  const multiLegReq = await prisma.flightRequest.create({
+    data: {
+      customerEmail: "ana@email.com",
+      customerName: "Ana López",
+      customerPhone: "+54 11 5555-2001",
+      vehicleType: "PLANE",
+      category: "ONE_WAY",
+      origin: "Aeroparque Jorge Newbery",
+      originCode: "AEP",
+      destination: "Aeropuerto de Bariloche",
+      destinationCode: "BRC",
+      departureDate: new Date("2026-05-15T00:00:00Z"),
+      passengersCount: 4,
+      budgetMin: 25000,
+      budgetMax: 40000,
+      notes: "Circuito de 4 tramos. Flexibles con fechas.",
+      expiresAt: new Date("2026-05-22T00:00:00Z"),
+    },
+  });
+
+  await prisma.flightLeg.createMany({
+    data: [
+      { requestId: multiLegReq.id, legOrder: 1, origin: "Aeroparque Jorge Newbery", originCode: "AEP", destination: "Aeropuerto de Mendoza", destinationCode: "MDZ", departureAt: new Date("2026-05-15T08:00:00Z") },
+      { requestId: multiLegReq.id, legOrder: 2, origin: "Aeropuerto de Mendoza", originCode: "MDZ", destination: "Aeropuerto de Bariloche", destinationCode: "BRC", departureAt: new Date("2026-05-17T10:00:00Z") },
+      { requestId: multiLegReq.id, legOrder: 3, origin: "Aeropuerto de Bariloche", originCode: "BRC", destination: "Aeroparque Jorge Newbery", destinationCode: "AEP", departureAt: new Date("2026-05-20T15:00:00Z") },
+    ],
+  });
+
+  console.log("Multi-leg request created");
   console.log("Seed complete!");
 }
 

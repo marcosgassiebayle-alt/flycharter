@@ -22,6 +22,9 @@ export async function GET(request: Request) {
       where,
       include: {
         _count: { select: { bids: true } },
+        legs: {
+          orderBy: { legOrder: "asc" },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -66,6 +69,22 @@ export async function POST(request: Request) {
         expiresAt,
       },
     });
+
+    // Create flight legs if provided
+    if (Array.isArray(body.legs) && body.legs.length > 0) {
+      await prisma.flightLeg.createMany({
+        data: body.legs.map((leg: { origin: string; originCode?: string; destination: string; destinationCode?: string; departureAt: string; arrivalAt?: string }, i: number) => ({
+          requestId: flightRequest.id,
+          legOrder: i + 1,
+          origin: leg.origin,
+          originCode: leg.originCode || null,
+          destination: leg.destination,
+          destinationCode: leg.destinationCode || null,
+          departureAt: new Date(leg.departureAt),
+          arrivalAt: leg.arrivalAt ? new Date(leg.arrivalAt) : null,
+        })),
+      });
+    }
 
     return NextResponse.json(flightRequest, { status: 201 });
   } catch (error) {

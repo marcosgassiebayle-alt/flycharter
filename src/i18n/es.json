@@ -36,7 +36,10 @@
     "selectDestination": "Seleccioná el destino",
     "selectDate": "Seleccioná la fecha",
     "noResults": "No se encontraron resultados",
-    "searchAirport": "Buscar aeropuerto..."
+    "searchAirport": "Buscar aeropuerto...",
+    "addLeg": "Agregar tramo",
+    "leg": "Tramo",
+    "removeLeg": "Eliminar tramo"
   },
   "offers": {
     "title": "Vuelos disponibles",
@@ -75,7 +78,8 @@
     "activate": "Activar",
     "delete": "Eliminar",
     "confirmDelete": "¿Estás seguro de que querés eliminar esta oferta?",
-    "fullCharter": "Vuelo completo"
+    "fullCharter": "Vuelo completo",
+    "itinerary": "Itinerario"
   },
   "pricing": {
     "currentPrice": "Precio actual",

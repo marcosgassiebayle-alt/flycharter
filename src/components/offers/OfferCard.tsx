@@ -22,6 +22,11 @@ type OfferPreview = {
   minPrice: number;
   isEmptyLeg: boolean;
   featured: boolean;
+  legs?: Array<{
+    legOrder: number;
+    originCode: string | null;
+    destinationCode: string | null;
+  }>;
   aircraft: {
     model: string;
     capacity: number;
@@ -122,9 +127,25 @@ export function OfferCard({ offer, className }: OfferCardProps) {
           {/* Bottom-left: route codes overlay */}
           <div className="absolute bottom-3 left-3">
             <p className="text-white font-heading font-bold text-lg leading-none drop-shadow-md">
-              {offer.originCode}
-              {offer.destination && offer.destinationCode && (
-                <span className="text-white/80"> → {offer.destinationCode}</span>
+              {offer.legs && offer.legs.length > 1 ? (
+                offer.legs
+                  .slice()
+                  .sort((a, b) => a.legOrder - b.legOrder)
+                  .map((leg, i) => (
+                    <span key={i}>
+                      {i === 0 && leg.originCode}
+                      {leg.destinationCode && (
+                        <span className="text-white/80"> → {leg.destinationCode}</span>
+                      )}
+                    </span>
+                  ))
+              ) : (
+                <>
+                  {offer.originCode}
+                  {offer.destination && offer.destinationCode && (
+                    <span className="text-white/80"> → {offer.destinationCode}</span>
+                  )}
+                </>
               )}
             </p>
           </div>
@@ -135,11 +156,30 @@ export function OfferCard({ offer, className }: OfferCardProps) {
           <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
             <MapPin className="size-3.5 text-brand-primary shrink-0" />
             <span className="truncate">
-              {offer.origin}
-              {offer.destination && (
+              {offer.legs && offer.legs.length > 1 ? (
+                offer.legs
+                  .slice()
+                  .sort((a, b) => a.legOrder - b.legOrder)
+                  .map((leg, i) => (
+                    <span key={i}>
+                      {i === 0 && leg.originCode}
+                      {leg.destinationCode && (
+                        <>
+                          <span className="text-muted-foreground mx-1">→</span>
+                          {leg.destinationCode}
+                        </>
+                      )}
+                    </span>
+                  ))
+              ) : (
                 <>
-                  <span className="text-muted-foreground mx-1">→</span>
-                  {offer.destination}
+                  {offer.origin}
+                  {offer.destination && (
+                    <>
+                      <span className="text-muted-foreground mx-1">→</span>
+                      {offer.destination}
+                    </>
+                  )}
                 </>
               )}
             </span>

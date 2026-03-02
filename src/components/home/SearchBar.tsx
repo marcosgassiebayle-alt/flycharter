@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/routing";
 import { format } from "date-fns";
 import { searchAirports, type Airport } from "@/lib/airports";
-import { Search, MapPin, Calendar, Users, Plane, CircleDot } from "lucide-react";
+import { Search, MapPin, Calendar, Users, Plane, CircleDot, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -13,31 +13,57 @@ import { cn } from "@/lib/utils";
 
 type VehicleType = "PLANE" | "HELICOPTER";
 
+type Leg = {
+  origin: Airport | null;
+  destination: Airport | null;
+  date: Date | undefined;
+  originQuery: string;
+  destinationQuery: string;
+  originOpen: boolean;
+  destinationOpen: boolean;
+  dateOpen: boolean;
+};
+
+function newLeg(prefillOrigin?: Airport | null): Leg {
+  return {
+    origin: prefillOrigin ?? null,
+    destination: null,
+    date: undefined,
+    originQuery: "",
+    destinationQuery: "",
+    originOpen: false,
+    destinationOpen: false,
+    dateOpen: false,
+  };
+}
+
 export function SearchBar() {
   const t = useTranslations("search");
   const router = useRouter();
 
-  const [origin, setOrigin] = useState<Airport | null>(null);
-  const [destination, setDestination] = useState<Airport | null>(null);
-  const [date, setDate] = useState<Date | undefined>(undefined);
+  const [legs, setLegs] = useState<Leg[]>([newLeg()]);
   const [vehicleType, setVehicleType] = useState<VehicleType>("PLANE");
   const [passengers, setPassengers] = useState(1);
 
-  const [originOpen, setOriginOpen] = useState(false);
-  const [destinationOpen, setDestinationOpen] = useState(false);
-  const [dateOpen, setDateOpen] = useState(false);
+  function updateLeg(index: number, patch: Partial<Leg>) {
+    setLegs((prev) => prev.map((leg, i) => (i === index ? { ...leg, ...patch } : leg)));
+  }
 
-  const [originQuery, setOriginQuery] = useState("");
-  const [destinationQuery, setDestinationQuery] = useState("");
+  function addLeg() {
+    const prevLeg = legs[legs.length - 1];
+    setLegs((prev) => [...prev, newLeg(prevLeg?.destination)]);
+  }
 
-  const originResults = originQuery.length > 0 ? searchAirports(originQuery) : [];
-  const destinationResults = destinationQuery.length > 0 ? searchAirports(destinationQuery) : [];
+  function removeLeg(index: number) {
+    setLegs((prev) => prev.filter((_, i) => i !== index));
+  }
 
   function handleSubmit() {
+    const first = legs[0];
     const params = new URLSearchParams();
-    if (origin) params.set("origin", origin.code);
-    if (destination) params.set("destination", destination.code);
-    if (date) params.set("date", format(date, "yyyy-MM-dd"));
+    if (first?.origin) params.set("origin", first.origin.code);
+    if (first?.destination) params.set("destination", first.destination.code);
+    if (first?.date) params.set("date", format(first.date, "yyyy-MM-dd"));
     if (passengers > 1) params.set("passengers", String(passengers));
 
     const basePath = vehicleType === "PLANE" ? "/aviones" : "/helicopteros";
@@ -47,178 +73,167 @@ export function SearchBar() {
 
   return (
     <div className="bg-white/90 backdrop-blur-md rounded-container shadow-2xl p-4 md:p-6 w-full max-w-5xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-end gap-3 md:gap-2">
-        {/* Origin */}
-        <div className="flex-1 min-w-0">
-          <label className="text-xs font-medium text-muted-foreground mb-1 block">
-            {t("origin")}
-          </label>
-          <Popover open={originOpen} onOpenChange={setOriginOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-left font-normal h-10 rounded-button",
-                  !origin && "text-muted-foreground"
-                )}
-              >
-                <MapPin className="size-4 text-brand-primary shrink-0" />
-                <span className="truncate">
-                  {origin
-                    ? `${origin.city} (${origin.code})`
-                    : t("selectOrigin")}
-                </span>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[300px] p-0" align="start">
-              <Command shouldFilter={false}>
-                <CommandInput
-                  placeholder={t("searchAirport")}
-                  value={originQuery}
-                  onValueChange={setOriginQuery}
-                />
-                <CommandList>
-                  <CommandEmpty>{t("noResults")}</CommandEmpty>
-                  <CommandGroup>
-                    {originResults.map((airport) => (
-                      <CommandItem
-                        key={airport.code}
-                        value={airport.code}
-                        onSelect={() => {
-                          setOrigin(airport);
-                          setOriginOpen(false);
-                          setOriginQuery("");
-                        }}
-                      >
-                        <MapPin className="size-4 text-muted-foreground shrink-0" />
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">
-                            {airport.city} ({airport.code})
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {airport.name}
-                          </span>
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-        </div>
+      {/* Legs */}
+      <div className="space-y-3 mb-4">
+        {legs.map((leg, index) => {
+          const originResults = leg.originQuery.length > 0 ? searchAirports(leg.originQuery) : [];
+          const destinationResults = leg.destinationQuery.length > 0 ? searchAirports(leg.destinationQuery) : [];
 
-        {/* Destination */}
-        <div className="flex-1 min-w-0">
-          <label className="text-xs font-medium text-muted-foreground mb-1 block">
-            {t("destination")}
-          </label>
-          <Popover open={destinationOpen} onOpenChange={setDestinationOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-left font-normal h-10 rounded-button",
-                  !destination && "text-muted-foreground"
-                )}
-              >
-                <MapPin className="size-4 text-brand-secondary shrink-0" />
-                <span className="truncate">
-                  {destination
-                    ? `${destination.city} (${destination.code})`
-                    : t("selectDestination")}
-                </span>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[300px] p-0" align="start">
-              <Command shouldFilter={false}>
-                <CommandInput
-                  placeholder={t("searchAirport")}
-                  value={destinationQuery}
-                  onValueChange={setDestinationQuery}
-                />
-                <CommandList>
-                  <CommandEmpty>{t("noResults")}</CommandEmpty>
-                  <CommandGroup>
-                    {destinationResults.map((airport) => (
-                      <CommandItem
-                        key={airport.code}
-                        value={airport.code}
-                        onSelect={() => {
-                          setDestination(airport);
-                          setDestinationOpen(false);
-                          setDestinationQuery("");
-                        }}
-                      >
-                        <MapPin className="size-4 text-muted-foreground shrink-0" />
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">
-                            {airport.city} ({airport.code})
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {airport.name}
-                          </span>
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-        </div>
+          return (
+            <div key={index} className="flex flex-col md:flex-row md:items-center gap-2">
+              {/* Leg number badge */}
+              {legs.length > 1 && (
+                <div className="flex items-center gap-2 md:gap-0 shrink-0">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand-primary text-white text-xs font-bold shrink-0">
+                    {index + 1}
+                  </span>
+                </div>
+              )}
 
-        {/* Date */}
-        <div className="flex-1 min-w-0">
-          <label className="text-xs font-medium text-muted-foreground mb-1 block">
-            {t("date")}
-          </label>
-          <Popover open={dateOpen} onOpenChange={setDateOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-left font-normal h-10 rounded-button",
-                  !date && "text-muted-foreground"
+              {/* Origin */}
+              <div className="flex-1 min-w-0">
+                {index === 0 && (
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">{t("origin")}</label>
                 )}
-              >
-                <Calendar className="size-4 text-brand-accent shrink-0" />
-                <span className="truncate">
-                  {date
-                    ? format(date, "dd/MM/yyyy")
-                    : t("selectDate")}
-                </span>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <CalendarComponent
-                mode="single"
-                selected={date}
-                onSelect={(day) => {
-                  setDate(day);
-                  setDateOpen(false);
-                }}
-                disabled={(day) => day < new Date()}
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
+                <Popover open={leg.originOpen} onOpenChange={(o) => updateLeg(index, { originOpen: o })}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn("w-full justify-start text-left font-normal h-10 rounded-button", !leg.origin && "text-muted-foreground")}
+                    >
+                      <MapPin className="size-4 text-brand-primary shrink-0" />
+                      <span className="truncate">{leg.origin ? `${leg.origin.city} (${leg.origin.code})` : t("selectOrigin")}</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0" align="start">
+                    <Command shouldFilter={false}>
+                      <CommandInput placeholder={t("searchAirport")} value={leg.originQuery} onValueChange={(v) => updateLeg(index, { originQuery: v })} />
+                      <CommandList>
+                        <CommandEmpty>{t("noResults")}</CommandEmpty>
+                        <CommandGroup>
+                          {originResults.map((airport) => (
+                            <CommandItem key={airport.code} value={airport.code} onSelect={() => updateLeg(index, { origin: airport, originOpen: false, originQuery: "" })}>
+                              <MapPin className="size-4 text-muted-foreground shrink-0" />
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium">{airport.city} ({airport.code})</span>
+                                <span className="text-xs text-muted-foreground">{airport.name}</span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
 
+              {/* Destination */}
+              <div className="flex-1 min-w-0">
+                {index === 0 && (
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">{t("destination")}</label>
+                )}
+                <Popover open={leg.destinationOpen} onOpenChange={(o) => updateLeg(index, { destinationOpen: o })}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn("w-full justify-start text-left font-normal h-10 rounded-button", !leg.destination && "text-muted-foreground")}
+                    >
+                      <MapPin className="size-4 text-brand-secondary shrink-0" />
+                      <span className="truncate">{leg.destination ? `${leg.destination.city} (${leg.destination.code})` : t("selectDestination")}</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0" align="start">
+                    <Command shouldFilter={false}>
+                      <CommandInput placeholder={t("searchAirport")} value={leg.destinationQuery} onValueChange={(v) => updateLeg(index, { destinationQuery: v })} />
+                      <CommandList>
+                        <CommandEmpty>{t("noResults")}</CommandEmpty>
+                        <CommandGroup>
+                          {destinationResults.map((airport) => (
+                            <CommandItem key={airport.code} value={airport.code} onSelect={() => updateLeg(index, { destination: airport, destinationOpen: false, destinationQuery: "" })}>
+                              <MapPin className="size-4 text-muted-foreground shrink-0" />
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium">{airport.city} ({airport.code})</span>
+                                <span className="text-xs text-muted-foreground">{airport.name}</span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Date */}
+              <div className="flex-1 min-w-0">
+                {index === 0 && (
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">{t("date")}</label>
+                )}
+                <Popover open={leg.dateOpen} onOpenChange={(o) => updateLeg(index, { dateOpen: o })}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn("w-full justify-start text-left font-normal h-10 rounded-button", !leg.date && "text-muted-foreground")}
+                    >
+                      <Calendar className="size-4 text-brand-accent shrink-0" />
+                      <span className="truncate">{leg.date ? format(leg.date, "dd/MM/yyyy") : t("selectDate")}</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={leg.date}
+                      onSelect={(day) => updateLeg(index, { date: day, dateOpen: false })}
+                      disabled={(day) => day < new Date()}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Remove leg button */}
+              {legs.length > 1 && (
+                <div className={index === 0 ? "mt-5" : ""}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeLeg(index)}
+                    className="h-10 w-10 text-muted-foreground hover:text-brand-error shrink-0"
+                    aria-label={t("removeLeg")}
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Add leg button */}
+        {legs.length < 5 && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={addLeg}
+            className="text-brand-primary hover:text-brand-primary font-medium gap-1.5"
+          >
+            <Plus className="size-4" />
+            {t("addLeg")}
+          </Button>
+        )}
+      </div>
+
+      {/* Global controls row */}
+      <div className="flex flex-col md:flex-row md:items-end gap-3 md:gap-2 border-t border-surface-border pt-4">
         {/* Vehicle Type Pills */}
         <div className="flex-shrink-0">
-          <label className="text-xs font-medium text-muted-foreground mb-1 block">
-            {t("type")}
-          </label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">{t("type")}</label>
           <div className="flex h-10 rounded-button border border-input overflow-hidden">
             <button
               type="button"
               onClick={() => setVehicleType("PLANE")}
-              className={cn(
-                "flex items-center gap-1.5 px-3 text-sm font-medium transition-colors",
-                vehicleType === "PLANE"
-                  ? "bg-brand-secondary text-white"
-                  : "bg-white text-foreground hover:bg-surface-alt"
-              )}
+              className={cn("flex items-center gap-1.5 px-3 text-sm font-medium transition-colors", vehicleType === "PLANE" ? "bg-brand-secondary text-white" : "bg-white text-foreground hover:bg-surface-alt")}
             >
               <Plane className="size-4" />
               {t("plane")}
@@ -226,12 +241,7 @@ export function SearchBar() {
             <button
               type="button"
               onClick={() => setVehicleType("HELICOPTER")}
-              className={cn(
-                "flex items-center gap-1.5 px-3 text-sm font-medium transition-colors",
-                vehicleType === "HELICOPTER"
-                  ? "bg-brand-secondary text-white"
-                  : "bg-white text-foreground hover:bg-surface-alt"
-              )}
+              className={cn("flex items-center gap-1.5 px-3 text-sm font-medium transition-colors", vehicleType === "HELICOPTER" ? "bg-brand-secondary text-white" : "bg-white text-foreground hover:bg-surface-alt")}
             >
               <CircleDot className="size-4" />
               {t("helicopter")}
@@ -241,9 +251,7 @@ export function SearchBar() {
 
         {/* Passengers */}
         <div className="flex-shrink-0">
-          <label className="text-xs font-medium text-muted-foreground mb-1 block">
-            {t("passengers")}
-          </label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">{t("passengers")}</label>
           <div className="flex items-center h-10 rounded-button border border-input bg-white">
             <button
               type="button"
@@ -269,7 +277,7 @@ export function SearchBar() {
         </div>
 
         {/* Search Button */}
-        <div className="flex-shrink-0 w-full md:w-auto">
+        <div className="flex-shrink-0 flex-1 md:flex-initial">
           <Button
             onClick={handleSubmit}
             size="lg"

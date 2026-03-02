@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/routing";
 import { searchAirports, type Airport } from "@/lib/airports";
 import { calculateCurrentPrice } from "@/lib/pricing";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,6 +41,7 @@ import {
   ChevronLeft,
   MapPin,
   Trash2,
+  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -101,6 +102,22 @@ export default function PublishPage() {
   const [originQuery, setOriginQuery] = useState("");
   const [destQuery, setDestQuery] = useState("");
 
+  type FlightLegForm = { origin: Airport | null; destination: Airport | null; departureAt: string; originOpen: boolean; destOpen: boolean; originQuery: string; destQuery: string };
+  const [legs, setLegs] = useState<FlightLegForm[]>([{ origin: null, destination: null, departureAt: "", originOpen: false, destOpen: false, originQuery: "", destQuery: "" }]);
+
+  function updateFlightLeg(index: number, patch: Partial<FlightLegForm>) {
+    setLegs((prev) => prev.map((leg, i) => (i === index ? { ...leg, ...patch } : leg)));
+  }
+
+  function addFlightLeg() {
+    const prevLeg = legs[legs.length - 1];
+    setLegs((prev) => [...prev, { origin: prevLeg?.destination ?? null, destination: null, departureAt: "", originOpen: false, destOpen: false, originQuery: "", destQuery: "" }]);
+  }
+
+  function removeFlightLeg(index: number) {
+    setLegs((prev) => prev.filter((_, i) => i !== index));
+  }
+
   // Step 3 — Pricing
   const [basePrice, setBasePrice] = useState<number>(0);
   const [isEmptyLeg, setIsEmptyLeg] = useState(false);
@@ -139,19 +156,29 @@ export default function PublishPage() {
                 curve: curveExponent,
               };
 
+      const firstLeg = legs[0];
+      const legsPayload = legs.length > 1 ? legs.map((leg, i) => ({
+        legOrder: i + 1,
+        origin: leg.origin?.name || "",
+        originCode: leg.origin?.code || null,
+        destination: leg.destination?.name || "",
+        destinationCode: leg.destination?.code || null,
+        departureAt: leg.departureAt,
+      })) : undefined;
+
       const body = {
         aircraft,
         category,
         vehicleType: aircraft.type,
-        origin: origin?.name || "",
-        originCode: origin?.code,
-        originLat: origin?.lat,
-        originLng: origin?.lng,
-        destination: destination?.name,
-        destinationCode: destination?.code,
-        destinationLat: destination?.lat,
-        destinationLng: destination?.lng,
-        departureAt,
+        origin: firstLeg?.origin?.name || "",
+        originCode: firstLeg?.origin?.code,
+        originLat: firstLeg?.origin?.lat,
+        originLng: firstLeg?.origin?.lng,
+        destination: firstLeg?.destination?.name,
+        destinationCode: firstLeg?.destination?.code,
+        destinationLat: firstLeg?.destination?.lat,
+        destinationLng: firstLeg?.destination?.lng,
+        departureAt: firstLeg?.departureAt,
         returnAt: returnAt || undefined,
         basePrice,
         minPrice: isEmptyLeg ? minPrice : basePrice,
@@ -160,6 +187,7 @@ export default function PublishPage() {
         discountRules: isEmptyLeg ? discountRules : undefined,
         cancellationPolicy,
         notes,
+        legs: legsPayload,
       };
 
       const res = await fetch("/api/offers", {
@@ -180,8 +208,8 @@ export default function PublishPage() {
 
   const getPricePreview = () => {
     if (!isEmptyLeg || !basePrice) return [];
-    const departure = departureAt
-      ? new Date(departureAt)
+    const departure = legs[0]?.departureAt
+      ? new Date(legs[0].departureAt)
       : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
     const rules =
       discountType === "TIERED"
@@ -426,122 +454,148 @@ export default function PublishPage() {
               </Select>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>{t("origin")}</Label>
-                <Popover open={originOpen} onOpenChange={setOriginOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-left font-normal"
-                    >
-                      <MapPin className="h-4 w-4 mr-2 shrink-0" />
-                      {origin
-                        ? `${origin.city} (${origin.code})`
-                        : tSearch("selectOrigin")}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="p-0 w-72">
-                    <Command>
-                      <CommandInput
-                        placeholder={tSearch("searchAirport")}
-                        value={originQuery}
-                        onValueChange={setOriginQuery}
-                      />
-                      <CommandList>
-                        <CommandEmpty>{tSearch("noResults")}</CommandEmpty>
-                        <CommandGroup>
-                          {searchAirports(originQuery || "").map((ap) => (
-                            <CommandItem
-                              key={ap.code}
-                              value={`${ap.code} ${ap.city} ${ap.name}`}
-                              onSelect={() => {
-                                setOrigin(ap);
-                                setOriginOpen(false);
-                              }}
-                            >
-                              <span className="font-semibold mr-2">
-                                {ap.code}
-                              </span>
-                              {ap.city}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {category !== "TOUR" && (
-                <div>
-                  <Label>{t("destination")}</Label>
-                  <Popover open={destOpen} onOpenChange={setDestOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
+            {/* Multi-leg rows */}
+            <div className="space-y-4">
+              {legs.map((leg, index) => (
+                <div key={index} className="border border-surface-border rounded-lg p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    {legs.length > 1 && (
+                      <span className="text-xs font-semibold text-brand-primary">
+                        Tramo {index + 1}
+                      </span>
+                    )}
+                    {legs.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeFlightLeg(index)}
+                        className="text-muted-foreground hover:text-brand-error transition-colors"
                       >
-                        <MapPin className="h-4 w-4 mr-2 shrink-0" />
-                        {destination
-                          ? `${destination.city} (${destination.code})`
-                          : tSearch("selectDestination")}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="p-0 w-72">
-                      <Command>
-                        <CommandInput
-                          placeholder={tSearch("searchAirport")}
-                          value={destQuery}
-                          onValueChange={setDestQuery}
-                        />
-                        <CommandList>
-                          <CommandEmpty>{tSearch("noResults")}</CommandEmpty>
-                          <CommandGroup>
-                            {searchAirports(destQuery || "").map((ap) => (
-                              <CommandItem
-                                key={ap.code}
-                                value={`${ap.code} ${ap.city} ${ap.name}`}
-                                onSelect={() => {
-                                  setDestination(ap);
-                                  setDestOpen(false);
-                                }}
-                              >
-                                <span className="font-semibold mr-2">
-                                  {ap.code}
-                                </span>
-                                {ap.city}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <Label>{t("origin")}</Label>
+                      <Popover open={leg.originOpen} onOpenChange={(o) => updateFlightLeg(index, { originOpen: o })}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left font-normal"
+                          >
+                            <MapPin className="h-4 w-4 mr-2 shrink-0" />
+                            {leg.origin
+                              ? `${leg.origin.city} (${leg.origin.code})`
+                              : tSearch("selectOrigin")}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="p-0 w-72">
+                          <Command>
+                            <CommandInput
+                              placeholder={tSearch("searchAirport")}
+                              value={leg.originQuery}
+                              onValueChange={(v) => updateFlightLeg(index, { originQuery: v })}
+                            />
+                            <CommandList>
+                              <CommandEmpty>{tSearch("noResults")}</CommandEmpty>
+                              <CommandGroup>
+                                {searchAirports(leg.originQuery || "").map((ap) => (
+                                  <CommandItem
+                                    key={ap.code}
+                                    value={`${ap.code} ${ap.city} ${ap.name}`}
+                                    onSelect={() => updateFlightLeg(index, { origin: ap, originOpen: false })}
+                                  >
+                                    <span className="font-semibold mr-2">{ap.code}</span>
+                                    {ap.city}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    {category !== "TOUR" && (
+                      <div>
+                        <Label>{t("destination")}</Label>
+                        <Popover open={leg.destOpen} onOpenChange={(o) => updateFlightLeg(index, { destOpen: o })}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start text-left font-normal"
+                            >
+                              <MapPin className="h-4 w-4 mr-2 shrink-0" />
+                              {leg.destination
+                                ? `${leg.destination.city} (${leg.destination.code})`
+                                : tSearch("selectDestination")}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="p-0 w-72">
+                            <Command>
+                              <CommandInput
+                                placeholder={tSearch("searchAirport")}
+                                value={leg.destQuery}
+                                onValueChange={(v) => updateFlightLeg(index, { destQuery: v })}
+                              />
+                              <CommandList>
+                                <CommandEmpty>{tSearch("noResults")}</CommandEmpty>
+                                <CommandGroup>
+                                  {searchAirports(leg.destQuery || "").map((ap) => (
+                                    <CommandItem
+                                      key={ap.code}
+                                      value={`${ap.code} ${ap.city} ${ap.name}`}
+                                      onSelect={() => updateFlightLeg(index, { destination: ap, destOpen: false })}
+                                    >
+                                      <span className="font-semibold mr-2">{ap.code}</span>
+                                      {ap.city}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label>{t("departureDateTime")}</Label>
+                    <Input
+                      type="datetime-local"
+                      value={leg.departureAt}
+                      onChange={(e) => updateFlightLeg(index, { departureAt: e.target.value })}
+                    />
+                  </div>
                 </div>
+              ))}
+
+              {legs.length < 5 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={addFlightLeg}
+                  className={cn("text-brand-primary hover:text-brand-primary font-medium gap-1.5")}
+                >
+                  <Plus className="h-4 w-4" />
+                  Agregar tramo
+                </Button>
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {category === "ROUND_TRIP" && (
               <div>
-                <Label>{t("departureDateTime")}</Label>
+                <Label>{t("returnDateTime")}</Label>
                 <Input
                   type="datetime-local"
-                  value={departureAt}
-                  onChange={(e) => setDepartureAt(e.target.value)}
+                  value={returnAt}
+                  onChange={(e) => setReturnAt(e.target.value)}
                 />
               </div>
-              {category === "ROUND_TRIP" && (
-                <div>
-                  <Label>{t("returnDateTime")}</Label>
-                  <Input
-                    type="datetime-local"
-                    value={returnAt}
-                    onChange={(e) => setReturnAt(e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
+            )}
 
             <div>
               <Label>{t("cancellationPolicy")}</Label>

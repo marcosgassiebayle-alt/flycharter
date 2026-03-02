@@ -20,6 +20,11 @@ export type FlightRequestPreview = {
   budgetMax: number | null;
   bidsCount: number;
   customerName: string;
+  legs?: Array<{
+    legOrder: number;
+    originCode: string | null;
+    destinationCode: string | null;
+  }>;
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -68,18 +73,32 @@ export function RequestCard({ request }: RequestCardProps) {
         <div className="flex items-center gap-2 text-sm">
           <MapPin className="size-4 text-brand-primary shrink-0" />
           <span className="font-medium truncate">
-            {request.origin}
-            {request.originCode && ` (${request.originCode})`}
+            {request.legs && request.legs.length > 1 ? (
+              request.legs
+                .slice()
+                .sort((a, b) => a.legOrder - b.legOrder)
+                .map((leg, i) => (
+                  <span key={i}>
+                    {i === 0 && leg.originCode}
+                    {leg.destinationCode && (
+                      <span> &rarr; {leg.destinationCode}</span>
+                    )}
+                  </span>
+                ))
+            ) : (
+              <>
+                {request.origin}
+                {request.originCode && ` (${request.originCode})`}
+                {request.destination && (
+                  <>
+                    <span className="text-muted-foreground"> &rarr; </span>
+                    {request.destination}
+                    {request.destinationCode && ` (${request.destinationCode})`}
+                  </>
+                )}
+              </>
+            )}
           </span>
-          {request.destination && (
-            <>
-              <span className="text-muted-foreground">&rarr;</span>
-              <span className="font-medium truncate">
-                {request.destination}
-                {request.destinationCode && ` (${request.destinationCode})`}
-              </span>
-            </>
-          )}
         </div>
 
         {/* Date & Passengers */}

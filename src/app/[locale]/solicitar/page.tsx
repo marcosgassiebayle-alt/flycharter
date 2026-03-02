@@ -44,11 +44,36 @@ import {
   ArrowRight,
   Minus,
   Plus,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type VehicleType = "PLANE" | "HELICOPTER" | "ANY";
 type Category = "TOUR" | "ONE_WAY" | "ROUND_TRIP" | "RETURN";
+
+type FormLeg = {
+  origin: Airport | null;
+  destination: Airport | null;
+  date: Date | undefined;
+  originQuery: string;
+  destinationQuery: string;
+  originOpen: boolean;
+  destinationOpen: boolean;
+  dateOpen: boolean;
+};
+
+function newFormLeg(prefillOrigin?: Airport | null): FormLeg {
+  return {
+    origin: prefillOrigin ?? null,
+    destination: null,
+    date: undefined,
+    originQuery: "",
+    destinationQuery: "",
+    originOpen: false,
+    destinationOpen: false,
+    dateOpen: false,
+  };
+}
 
 export default function SolicitarPage() {
   const t = useTranslations("requestForm");
@@ -57,9 +82,7 @@ export default function SolicitarPage() {
   // Form state
   const [vehicleType, setVehicleType] = useState<VehicleType>("ANY");
   const [category, setCategory] = useState<Category | "">("");
-  const [origin, setOrigin] = useState<Airport | null>(null);
-  const [destination, setDestination] = useState<Airport | null>(null);
-  const [departureDate, setDepartureDate] = useState<Date | undefined>();
+  const [formLegs, setFormLegs] = useState<FormLeg[]>([newFormLeg()]);
   const [returnDate, setReturnDate] = useState<Date | undefined>();
   const [passengers, setPassengers] = useState(1);
   const [budgetMin, setBudgetMin] = useState("");
@@ -70,20 +93,23 @@ export default function SolicitarPage() {
   const [customerPhone, setCustomerPhone] = useState("");
 
   // UI state
-  const [originOpen, setOriginOpen] = useState(false);
-  const [destinationOpen, setDestinationOpen] = useState(false);
-  const [originQuery, setOriginQuery] = useState("");
-  const [destinationQuery, setDestinationQuery] = useState("");
-  const [departureDateOpen, setDepartureDateOpen] = useState(false);
   const [returnDateOpen, setReturnDateOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const originResults =
-    originQuery.length > 0 ? searchAirports(originQuery) : [];
-  const destinationResults =
-    destinationQuery.length > 0 ? searchAirports(destinationQuery) : [];
+  function updateLeg(index: number, patch: Partial<FormLeg>) {
+    setFormLegs((prev) => prev.map((leg, i) => (i === index ? { ...leg, ...patch } : leg)));
+  }
+
+  function addLeg() {
+    const prevLeg = formLegs[formLegs.length - 1];
+    setFormLegs((prev) => [...prev, newFormLeg(prevLeg?.destination)]);
+  }
+
+  function removeLeg(index: number) {
+    setFormLegs((prev) => prev.filter((_, i) => i !== index));
+  }
 
   const showDestination = category !== "TOUR";
   const showReturnDate = category === "ROUND_TRIP";
@@ -93,16 +119,25 @@ export default function SolicitarPage() {
     setIsSubmitting(true);
     setErrorMessage("");
 
+    const legsPayload = formLegs.length > 1 ? formLegs.map((leg, i) => ({
+      legOrder: i + 1,
+      origin: leg.origin ? `${leg.origin.city} (${leg.origin.code})` : "",
+      originCode: leg.origin?.code || null,
+      destination: leg.destination ? `${leg.destination.city} (${leg.destination.code})` : "",
+      destinationCode: leg.destination?.code || null,
+      departureAt: leg.date?.toISOString() || new Date().toISOString(),
+    })) : undefined;
+
     const payload = {
       vehicleType,
       category,
-      originCode: origin?.code ?? null,
-      origin: origin ? `${origin.city} (${origin.code})` : "",
-      destinationCode: destination?.code ?? null,
-      destination: destination
-        ? `${destination.city} (${destination.code})`
+      originCode: formLegs[0]?.origin?.code ?? null,
+      origin: formLegs[0]?.origin ? `${formLegs[0].origin.city} (${formLegs[0].origin.code})` : "",
+      destinationCode: formLegs[0]?.destination?.code ?? null,
+      destination: formLegs[0]?.destination
+        ? `${formLegs[0].destination.city} (${formLegs[0].destination.code})`
         : null,
-      departureDate: departureDate?.toISOString() ?? null,
+      departureDate: formLegs[0]?.date?.toISOString() ?? null,
       returnDate: returnDate?.toISOString() ?? null,
       passengersCount: passengers,
       budgetMin: budgetMin ? Number(budgetMin) : null,
@@ -111,6 +146,7 @@ export default function SolicitarPage() {
       customerName,
       customerEmail,
       customerPhone: customerPhone || null,
+      legs: legsPayload,
     };
 
     try {
@@ -159,9 +195,7 @@ export default function SolicitarPage() {
                 setIsSuccess(false);
                 setVehicleType("ANY");
                 setCategory("");
-                setOrigin(null);
-                setDestination(null);
-                setDepartureDate(undefined);
+                setFormLegs([newFormLeg()]);
                 setReturnDate(undefined);
                 setPassengers(1);
                 setBudgetMin("");
@@ -283,218 +317,225 @@ export default function SolicitarPage() {
               </Select>
             </div>
 
-            {/* Origin */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">{t("origin")}</Label>
-              <Popover open={originOpen} onOpenChange={setOriginOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal rounded-button h-10",
-                      !origin && "text-muted-foreground"
-                    )}
-                  >
-                    <MapPin className="size-4 text-brand-primary shrink-0" />
-                    <span className="truncate">
-                      {origin
-                        ? `${origin.city} (${origin.code}) - ${origin.name}`
-                        : t("selectOrigin")}
-                    </span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[320px] p-0" align="start">
-                  <Command shouldFilter={false}>
-                    <CommandInput
-                      placeholder={t("searchAirport")}
-                      value={originQuery}
-                      onValueChange={setOriginQuery}
-                    />
-                    <CommandList>
-                      <CommandEmpty>{t("noAirportResults")}</CommandEmpty>
-                      <CommandGroup>
-                        {originResults.map((airport) => (
-                          <CommandItem
-                            key={airport.code}
-                            value={airport.code}
-                            onSelect={() => {
-                              setOrigin(airport);
-                              setOriginOpen(false);
-                              setOriginQuery("");
-                            }}
+            {/* Legs */}
+            <div className="space-y-4">
+              {formLegs.map((leg, index) => {
+                const originResults = leg.originQuery.length > 0 ? searchAirports(leg.originQuery) : [];
+                const destinationResults = leg.destinationQuery.length > 0 ? searchAirports(leg.destinationQuery) : [];
+
+                return (
+                  <div key={index} className="space-y-3 border border-surface-border rounded-card p-3">
+                    <div className="flex items-center justify-between">
+                      {formLegs.length > 1 && (
+                        <span className="text-xs font-semibold text-brand-primary">
+                          Tramo {index + 1}
+                        </span>
+                      )}
+                      {formLegs.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeLeg(index)}
+                          className="h-7 w-7 text-muted-foreground hover:text-brand-error"
+                        >
+                          <X className="size-3.5" />
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Origin */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">{t("origin")}</Label>
+                      <Popover open={leg.originOpen} onOpenChange={(o) => updateLeg(index, { originOpen: o })}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal rounded-button h-10",
+                              !leg.origin && "text-muted-foreground"
+                            )}
                           >
-                            <MapPin className="size-4 text-muted-foreground shrink-0" />
-                            <div className="flex flex-col">
-                              <span className="text-sm font-medium">
-                                {airport.city} ({airport.code})
+                            <MapPin className="size-4 text-brand-primary shrink-0" />
+                            <span className="truncate">
+                              {leg.origin
+                                ? `${leg.origin.city} (${leg.origin.code}) - ${leg.origin.name}`
+                                : t("selectOrigin")}
+                            </span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[320px] p-0" align="start">
+                          <Command shouldFilter={false}>
+                            <CommandInput
+                              placeholder={t("searchAirport")}
+                              value={leg.originQuery}
+                              onValueChange={(v) => updateLeg(index, { originQuery: v })}
+                            />
+                            <CommandList>
+                              <CommandEmpty>{t("noAirportResults")}</CommandEmpty>
+                              <CommandGroup>
+                                {originResults.map((airport) => (
+                                  <CommandItem
+                                    key={airport.code}
+                                    value={airport.code}
+                                    onSelect={() => updateLeg(index, { origin: airport, originOpen: false, originQuery: "" })}
+                                  >
+                                    <MapPin className="size-4 text-muted-foreground shrink-0" />
+                                    <div className="flex flex-col">
+                                      <span className="text-sm font-medium">
+                                        {airport.city} ({airport.code})
+                                      </span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {airport.name}
+                                      </span>
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    {/* Destination */}
+                    {showDestination && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">{t("destination")}</Label>
+                        <Popover open={leg.destinationOpen} onOpenChange={(o) => updateLeg(index, { destinationOpen: o })}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal rounded-button h-10",
+                                !leg.destination && "text-muted-foreground"
+                              )}
+                            >
+                              <MapPin className="size-4 text-brand-secondary shrink-0" />
+                              <span className="truncate">
+                                {leg.destination
+                                  ? `${leg.destination.city} (${leg.destination.code}) - ${leg.destination.name}`
+                                  : t("selectDestination")}
                               </span>
-                              <span className="text-xs text-muted-foreground">
-                                {airport.name}
-                              </span>
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[320px] p-0" align="start">
+                            <Command shouldFilter={false}>
+                              <CommandInput
+                                placeholder={t("searchAirport")}
+                                value={leg.destinationQuery}
+                                onValueChange={(v) => updateLeg(index, { destinationQuery: v })}
+                              />
+                              <CommandList>
+                                <CommandEmpty>{t("noAirportResults")}</CommandEmpty>
+                                <CommandGroup>
+                                  {destinationResults.map((airport) => (
+                                    <CommandItem
+                                      key={airport.code}
+                                      value={airport.code}
+                                      onSelect={() => updateLeg(index, { destination: airport, destinationOpen: false, destinationQuery: "" })}
+                                    >
+                                      <MapPin className="size-4 text-muted-foreground shrink-0" />
+                                      <div className="flex flex-col">
+                                        <span className="text-sm font-medium">
+                                          {airport.city} ({airport.code})
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">
+                                          {airport.name}
+                                        </span>
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    )}
+
+                    {/* Departure Date */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">{t("departureDate")}</Label>
+                      <Popover open={leg.dateOpen} onOpenChange={(o) => updateLeg(index, { dateOpen: o })}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal rounded-button h-10",
+                              !leg.date && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="size-4 text-brand-primary shrink-0" />
+                            {leg.date ? format(leg.date, "PPP") : t("selectDate")}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={leg.date}
+                            onSelect={(date) => updateLeg(index, { date: date, dateOpen: false })}
+                            disabled={(date) => date < new Date()}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Add leg button */}
+              {formLegs.length < 5 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={addLeg}
+                  className="text-brand-primary hover:text-brand-primary font-medium gap-1.5"
+                >
+                  <Plus className="size-4" />
+                  Agregar tramo
+                </Button>
+              )}
             </div>
 
-            {/* Destination */}
-            {showDestination && (
+            {/* Return Date (only for ROUND_TRIP) */}
+            {showReturnDate && (
               <div className="space-y-2">
-                <Label className="text-sm font-medium">
-                  {t("destination")}
-                </Label>
-                <Popover
-                  open={destinationOpen}
-                  onOpenChange={setDestinationOpen}
-                >
+                <Label className="text-sm font-medium">{t("returnDate")}</Label>
+                <Popover open={returnDateOpen} onOpenChange={setReturnDateOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       type="button"
                       variant="outline"
                       className={cn(
                         "w-full justify-start text-left font-normal rounded-button h-10",
-                        !destination && "text-muted-foreground"
+                        !returnDate && "text-muted-foreground"
                       )}
                     >
-                      <MapPin className="size-4 text-brand-secondary shrink-0" />
-                      <span className="truncate">
-                        {destination
-                          ? `${destination.city} (${destination.code}) - ${destination.name}`
-                          : t("selectDestination")}
-                      </span>
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[320px] p-0" align="start">
-                    <Command shouldFilter={false}>
-                      <CommandInput
-                        placeholder={t("searchAirport")}
-                        value={destinationQuery}
-                        onValueChange={setDestinationQuery}
-                      />
-                      <CommandList>
-                        <CommandEmpty>{t("noAirportResults")}</CommandEmpty>
-                        <CommandGroup>
-                          {destinationResults.map((airport) => (
-                            <CommandItem
-                              key={airport.code}
-                              value={airport.code}
-                              onSelect={() => {
-                                setDestination(airport);
-                                setDestinationOpen(false);
-                                setDestinationQuery("");
-                              }}
-                            >
-                              <MapPin className="size-4 text-muted-foreground shrink-0" />
-                              <div className="flex flex-col">
-                                <span className="text-sm font-medium">
-                                  {airport.city} ({airport.code})
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {airport.name}
-                                </span>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-            )}
-
-            {/* Dates row */}
-            <div
-              className={cn(
-                "grid gap-4",
-                showReturnDate ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"
-              )}
-            >
-              {/* Departure Date */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">
-                  {t("departureDate")}
-                </Label>
-                <Popover
-                  open={departureDateOpen}
-                  onOpenChange={setDepartureDateOpen}
-                >
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal rounded-button h-10",
-                        !departureDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="size-4 text-brand-primary shrink-0" />
-                      {departureDate
-                        ? format(departureDate, "PPP")
-                        : t("selectDate")}
+                      <CalendarIcon className="size-4 text-brand-secondary shrink-0" />
+                      {returnDate ? format(returnDate, "PPP") : t("selectDate")}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="single"
-                      selected={departureDate}
+                      selected={returnDate}
                       onSelect={(date) => {
-                        setDepartureDate(date);
-                        setDepartureDateOpen(false);
+                        setReturnDate(date);
+                        setReturnDateOpen(false);
                       }}
-                      disabled={(date) => date < new Date()}
+                      disabled={(date) =>
+                        date < (formLegs[0]?.date ?? new Date())
+                      }
                     />
                   </PopoverContent>
                 </Popover>
               </div>
-
-              {/* Return Date */}
-              {showReturnDate && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">
-                    {t("returnDate")}
-                  </Label>
-                  <Popover
-                    open={returnDateOpen}
-                    onOpenChange={setReturnDateOpen}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal rounded-button h-10",
-                          !returnDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="size-4 text-brand-secondary shrink-0" />
-                        {returnDate
-                          ? format(returnDate, "PPP")
-                          : t("selectDate")}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={returnDate}
-                        onSelect={(date) => {
-                          setReturnDate(date);
-                          setReturnDateOpen(false);
-                        }}
-                        disabled={(date) =>
-                          date < (departureDate ?? new Date())
-                        }
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              )}
-            </div>
+            )}
           </CardContent>
         </Card>
 
