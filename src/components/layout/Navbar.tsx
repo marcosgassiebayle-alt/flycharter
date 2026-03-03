@@ -6,6 +6,7 @@ import { useSession, signOut } from "next-auth/react";
 import { Link } from "@/i18n/routing";
 import { Plane, Menu, X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
   DropdownMenu,
@@ -25,6 +26,7 @@ export function Navbar() {
     { href: "/", label: t("home") },
     { href: "/aviones", label: t("planes") },
     { href: "/helicopteros", label: t("helicopters") },
+    { href: "/ofertas", label: t("offers"), highlight: true },
     { href: "/solicitudes", label: t("requests") },
     { href: "/como-funciona", label: t("howItWorks") },
     { href: "/contacto", label: t("contact") },
@@ -48,7 +50,12 @@ export function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-sm font-medium text-gray-700 hover:text-brand-primary transition-colors"
+                className={cn(
+                  "text-sm font-medium transition-colors",
+                  link.highlight
+                    ? "text-brand-primary font-semibold hover:text-brand-primary/80"
+                    : "text-gray-700 hover:text-brand-primary"
+                )}
               >
                 {link.label}
               </Link>

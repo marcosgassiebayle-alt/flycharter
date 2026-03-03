@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { SearchBar } from "@/components/home/SearchBar";
 import { FeaturedOffers } from "@/components/home/FeaturedOffers";
+import { SpecialOffersSection } from "@/components/home/SpecialOffersSection";
 import { Search, Shield, Plane, Star, Zap, Clock } from "lucide-react";
 import { Link } from "@/i18n/routing";
 
@@ -69,6 +70,9 @@ export default async function HomePage() {
 
       {/* Featured Offers */}
       <FeaturedOffers />
+
+      {/* Special Offers Section */}
+      <SpecialOffersSection />
 
       {/* Request CTA */}
       <section className="bg-surface-alt py-16 md:py-20">

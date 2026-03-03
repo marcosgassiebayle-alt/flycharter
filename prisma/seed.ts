@@ -11,6 +11,9 @@ async function main() {
   // Clear existing data for idempotent re-runs
   await prisma.chatMessage.deleteMany();
   await prisma.chatRoom.deleteMany();
+  await prisma.flightLeg.deleteMany();
+  await prisma.aircraftBlockedDate.deleteMany();
+  await prisma.aircraftLocation.deleteMany();
   await prisma.booking.deleteMany();
   await prisma.bid.deleteMany();
   await prisma.flightRequest.deleteMany();
@@ -69,7 +72,7 @@ async function main() {
 
   console.log("Operators created");
 
-  // Aircraft
+  // Aircraft with new V2 fields
   const cessnaCJ3 = await prisma.aircraft.create({
     data: {
       operatorId: carlos.id,
@@ -85,6 +88,13 @@ async function main() {
         "https://images.unsplash.com/photo-1474302770737-173ee21bab63?w=800",
       ],
       amenities: ["WiFi", "Aire acondicionado", "Catering", "Asientos reclinables"],
+      hourlyRate: 1800,
+      baseAirport: "SFN",
+      baseAirportName: "Aeropuerto de San Fernando",
+      baseLat: -34.453,
+      baseLng: -58.59,
+      cruiseSpeedKmh: 680,
+      minBookingHours: 1,
     },
   });
 
@@ -103,6 +113,13 @@ async function main() {
         "https://images.unsplash.com/photo-1436491865332-7a61a109db05?w=800",
       ],
       amenities: ["WiFi", "Aire acondicionado", "Baño", "Catering"],
+      hourlyRate: 2200,
+      baseAirport: "SFN",
+      baseAirportName: "Aeropuerto de San Fernando",
+      baseLat: -34.453,
+      baseLng: -58.59,
+      cruiseSpeedKmh: 580,
+      minBookingHours: 1,
     },
   });
 
@@ -121,6 +138,13 @@ async function main() {
         "https://images.unsplash.com/photo-1605548109944-9040d0972bf5?w=800",
       ],
       amenities: ["Aire acondicionado", "USB", "Asientos reclinables"],
+      hourlyRate: 1200,
+      baseAirport: "HBA",
+      baseAirportName: "Helipuerto Buenos Aires",
+      baseLat: -34.592,
+      baseLng: -58.37,
+      cruiseSpeedKmh: 220,
+      minBookingHours: 1,
     },
   });
 
@@ -138,6 +162,13 @@ async function main() {
         "https://images.unsplash.com/photo-1608236465209-5e0dbf4ac0e7?w=800",
       ],
       amenities: ["Aire acondicionado", "USB", "TV"],
+      hourlyRate: 1500,
+      baseAirport: "FTE",
+      baseAirportName: "Aeropuerto de El Calafate",
+      baseLat: -50.281,
+      baseLng: -72.053,
+      cruiseSpeedKmh: 240,
+      minBookingHours: 1,
     },
   });
 
@@ -162,12 +193,47 @@ async function main() {
         "Baño",
         "Asientos reclinables",
       ],
+      hourlyRate: 2800,
+      baseAirport: "SFN",
+      baseAirportName: "Aeropuerto de San Fernando",
+      baseLat: -34.453,
+      baseLng: -58.59,
+      cruiseSpeedKmh: 780,
+      minBookingHours: 1,
     },
   });
 
   console.log("Aircraft created");
 
-  // Offers
+  // Blocked dates and location overrides
+  const today = new Date();
+  const addDays = (d: Date, n: number) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
+
+  await prisma.aircraftBlockedDate.createMany({
+    data: [
+      { aircraftId: cessnaCJ3.id, date: addDays(today, 3), reason: "maintenance" },
+      { aircraftId: cessnaCJ3.id, date: addDays(today, 7), reason: "maintenance" },
+      { aircraftId: cessnaCJ3.id, date: addDays(today, 12), reason: "booked" },
+      { aircraftId: bell407.id, date: addDays(today, 5), reason: "personal" },
+      { aircraftId: bell407.id, date: addDays(today, 9), reason: "personal" },
+    ],
+  });
+
+  await prisma.aircraftLocation.createMany({
+    data: [
+      { aircraftId: bell407.id, date: addDays(today, 4), airportCode: "IGR", airportName: "Aeropuerto de Iguazú", lat: -25.737, lng: -54.474 },
+      { aircraftId: bell407.id, date: addDays(today, 6), airportCode: "IGR", airportName: "Aeropuerto de Iguazú", lat: -25.737, lng: -54.474 },
+      { aircraftId: bell407.id, date: addDays(today, 7), airportCode: "IGR", airportName: "Aeropuerto de Iguazú", lat: -25.737, lng: -54.474 },
+      { aircraftId: airbusH130.id, date: addDays(today, 2), airportCode: "BRC", airportName: "Aeropuerto de Bariloche", lat: -41.151, lng: -71.158 },
+      { aircraftId: airbusH130.id, date: addDays(today, 3), airportCode: "BRC", airportName: "Aeropuerto de Bariloche", lat: -41.151, lng: -71.158 },
+      { aircraftId: airbusH130.id, date: addDays(today, 4), airportCode: "BRC", airportName: "Aeropuerto de Bariloche", lat: -41.151, lng: -71.158 },
+      { aircraftId: airbusH130.id, date: addDays(today, 5), airportCode: "BRC", airportName: "Aeropuerto de Bariloche", lat: -41.151, lng: -71.158 },
+    ],
+  });
+
+  console.log("Aircraft blocked dates and locations created");
+
+  // Regular Offers
   const offers = [
     {
       operatorId: carlos.id,
@@ -299,7 +365,7 @@ async function main() {
       slug: "igr-tour-2026-04-12-m3n4",
       featured: false,
     },
-    // Empty Legs
+    // Empty Legs (original)
     {
       operatorId: carlos.id,
       aircraftId: cessnaCJ3.id,
@@ -383,71 +449,36 @@ async function main() {
 
   console.log("Offers created");
 
-  // Multi-leg offers
-  const patagoniaCircuit = await prisma.offer.create({
+  // Multi-leg request (no offer-based FlightLegs)
+  const multiLegReq = await prisma.flightRequest.create({
     data: {
-      operatorId: carlos.id,
-      aircraftId: kingAir.id,
+      customerEmail: "ana@email.com",
+      customerName: "Ana López",
+      customerPhone: "+54 11 5555-2001",
+      vehicleType: "PLANE",
       category: "ONE_WAY",
-      vehicleType: "PLANE",
-      origin: "Aeropuerto de San Fernando",
-      originCode: "SFN",
-      originLat: -34.453,
-      originLng: -58.59,
-      destination: "Aeropuerto Internacional Malvinas Argentinas",
-      destinationCode: "USH",
-      destinationLat: -54.843,
-      destinationLng: -68.296,
-      departureAt: new Date("2026-05-10T08:00:00Z"),
-      basePrice: 45000,
-      minPrice: 45000,
-      isEmptyLeg: false,
-      slug: "sfn-brc-fte-ush-2026-05-10-multi",
-      featured: true,
+      origin: "Aeroparque Jorge Newbery",
+      originCode: "AEP",
+      destination: "Aeropuerto de Bariloche",
+      destinationCode: "BRC",
+      departureDate: new Date("2026-05-15T00:00:00Z"),
+      passengersCount: 4,
+      budgetMin: 25000,
+      budgetMax: 40000,
+      notes: "Circuito de 4 tramos. Flexibles con fechas.",
+      expiresAt: new Date("2026-05-22T00:00:00Z"),
     },
   });
 
   await prisma.flightLeg.createMany({
     data: [
-      { offerId: patagoniaCircuit.id, legOrder: 1, origin: "Aeropuerto de San Fernando", originCode: "SFN", destination: "Aeropuerto de Bariloche", destinationCode: "BRC", departureAt: new Date("2026-05-10T08:00:00Z") },
-      { offerId: patagoniaCircuit.id, legOrder: 2, origin: "Aeropuerto de Bariloche", originCode: "BRC", destination: "Aeropuerto de El Calafate", destinationCode: "FTE", departureAt: new Date("2026-05-12T09:00:00Z") },
-      { offerId: patagoniaCircuit.id, legOrder: 3, origin: "Aeropuerto de El Calafate", originCode: "FTE", destination: "Aeropuerto Internacional Malvinas Argentinas", destinationCode: "USH", departureAt: new Date("2026-05-14T10:00:00Z") },
+      { requestId: multiLegReq.id, legOrder: 1, origin: "Aeroparque Jorge Newbery", originCode: "AEP", destination: "Aeropuerto de Mendoza", destinationCode: "MDZ", departureAt: new Date("2026-05-15T08:00:00Z") },
+      { requestId: multiLegReq.id, legOrder: 2, origin: "Aeropuerto de Mendoza", originCode: "MDZ", destination: "Aeropuerto de Bariloche", destinationCode: "BRC", departureAt: new Date("2026-05-17T10:00:00Z") },
+      { requestId: multiLegReq.id, legOrder: 3, origin: "Aeropuerto de Bariloche", originCode: "BRC", destination: "Aeroparque Jorge Newbery", destinationCode: "AEP", departureAt: new Date("2026-05-20T15:00:00Z") },
     ],
   });
 
-  const norteTour = await prisma.offer.create({
-    data: {
-      operatorId: jorge.id,
-      aircraftId: learjet.id,
-      category: "ROUND_TRIP",
-      vehicleType: "PLANE",
-      origin: "Aeropuerto de San Fernando",
-      originCode: "SFN",
-      originLat: -34.453,
-      originLng: -58.59,
-      destination: "Aeropuerto de San Fernando",
-      destinationCode: "SFN",
-      destinationLat: -34.453,
-      destinationLng: -58.59,
-      departureAt: new Date("2026-05-20T07:00:00Z"),
-      returnAt: new Date("2026-05-25T18:00:00Z"),
-      basePrice: 38000,
-      minPrice: 38000,
-      isEmptyLeg: false,
-      slug: "sfn-igr-sla-sfn-2026-05-20-multi",
-      featured: false,
-    },
-  });
-
-  await prisma.flightLeg.createMany({
-    data: [
-      { offerId: norteTour.id, legOrder: 1, origin: "Aeropuerto de San Fernando", originCode: "SFN", destination: "Aeropuerto de Iguazú", destinationCode: "IGR", departureAt: new Date("2026-05-20T07:00:00Z") },
-      { offerId: norteTour.id, legOrder: 2, origin: "Aeropuerto de Iguazú", originCode: "IGR", destination: "Aeropuerto de Salta", destinationCode: "SLA", departureAt: new Date("2026-05-22T10:00:00Z") },
-      { offerId: norteTour.id, legOrder: 3, origin: "Aeropuerto de Salta", originCode: "SLA", destination: "Aeropuerto de San Fernando", destinationCode: "SFN", departureAt: new Date("2026-05-25T15:00:00Z") },
-    ],
-  });
-
-  console.log("Multi-leg offers created");
+  console.log("Multi-leg request created");
 
   // Flight Requests
   await prisma.flightRequest.createMany({
@@ -508,36 +539,118 @@ async function main() {
 
   console.log("Flight requests created");
 
-  // Multi-leg request
-  const multiLegReq = await prisma.flightRequest.create({
-    data: {
-      customerEmail: "ana@email.com",
-      customerName: "Ana López",
-      customerPhone: "+54 11 5555-2001",
-      vehicleType: "PLANE",
-      category: "ONE_WAY",
+  // Special offers (V2 new offer types)
+  const now2 = new Date();
+
+  const specialOffers = [
+    {
+      operatorId: carlos.id,
+      aircraftId: cessnaCJ3.id,
+      category: "RETURN" as const,
+      vehicleType: "PLANE" as const,
+      origin: "Aeropuerto de Bariloche",
+      originCode: "BRC",
+      destination: "Aeropuerto de San Fernando",
+      destinationCode: "SFN",
+      departureAt: addDays(now2, 2),
+      basePrice: 4800,
+      minPrice: 4800,
+      originalPrice: 12000,
+      discountLabel: "Empty Leg -60%",
+      isEmptyLeg: true,
+      isLastMinute: false,
+      isSharedFlight: false,
+      slug: "brc-sfn-emptleg-v2-a1",
+      featured: true,
+    },
+    {
+      operatorId: carlos.id,
+      aircraftId: kingAir.id,
+      category: "RETURN" as const,
+      vehicleType: "PLANE" as const,
+      origin: "Aeropuerto de Mendoza",
+      originCode: "MDZ",
+      destination: "Aeroparque Jorge Newbery",
+      destinationCode: "AEP",
+      departureAt: addDays(now2, 5),
+      basePrice: 4500,
+      minPrice: 4500,
+      originalPrice: 9000,
+      discountLabel: "Empty Leg -50%",
+      isEmptyLeg: true,
+      isLastMinute: false,
+      isSharedFlight: false,
+      slug: "mdz-aep-emptleg-v2-a2",
+      featured: false,
+    },
+    {
+      operatorId: jorge.id,
+      aircraftId: learjet.id,
+      category: "ONE_WAY" as const,
+      vehicleType: "PLANE" as const,
+      origin: "Aeropuerto de San Fernando",
+      originCode: "SFN",
+      destination: "Aeropuerto de Córdoba",
+      destinationCode: "COR",
+      departureAt: addDays(now2, 1),
+      basePrice: 5100,
+      minPrice: 5100,
+      originalPrice: 8500,
+      discountLabel: "Último Minuto -40%",
+      isEmptyLeg: false,
+      isLastMinute: true,
+      isSharedFlight: false,
+      slug: "sfn-cor-lastmin-v2-a3",
+      featured: true,
+    },
+    {
+      operatorId: maria.id,
+      aircraftId: airbusH130.id,
+      category: "ONE_WAY" as const,
+      vehicleType: "HELICOPTER" as const,
       origin: "Aeroparque Jorge Newbery",
       originCode: "AEP",
+      destination: "Aeropuerto de Iguazú",
+      destinationCode: "IGR",
+      departureAt: addDays(now2, 3),
+      basePrice: 650,
+      minPrice: 650,
+      pricePerSeat: 650,
+      availableSeats: 3,
+      isEmptyLeg: false,
+      isLastMinute: false,
+      isSharedFlight: true,
+      slug: "aep-igr-shared-v2-a4",
+      featured: false,
+    },
+    {
+      operatorId: carlos.id,
+      aircraftId: cessnaCJ3.id,
+      category: "ROUND_TRIP" as const,
+      vehicleType: "PLANE" as const,
+      origin: "Aeropuerto de San Fernando",
+      originCode: "SFN",
       destination: "Aeropuerto de Bariloche",
       destinationCode: "BRC",
-      departureDate: new Date("2026-05-15T00:00:00Z"),
-      passengersCount: 4,
-      budgetMin: 25000,
-      budgetMax: 40000,
-      notes: "Circuito de 4 tramos. Flexibles con fechas.",
-      expiresAt: new Date("2026-05-22T00:00:00Z"),
+      departureAt: addDays(now2, 4),
+      returnAt: addDays(now2, 7),
+      basePrice: 1200,
+      minPrice: 1200,
+      pricePerSeat: 1200,
+      availableSeats: 4,
+      isEmptyLeg: false,
+      isLastMinute: false,
+      isSharedFlight: true,
+      slug: "sfn-brc-shared-v2-a5",
+      featured: false,
     },
-  });
+  ];
 
-  await prisma.flightLeg.createMany({
-    data: [
-      { requestId: multiLegReq.id, legOrder: 1, origin: "Aeroparque Jorge Newbery", originCode: "AEP", destination: "Aeropuerto de Mendoza", destinationCode: "MDZ", departureAt: new Date("2026-05-15T08:00:00Z") },
-      { requestId: multiLegReq.id, legOrder: 2, origin: "Aeropuerto de Mendoza", originCode: "MDZ", destination: "Aeropuerto de Bariloche", destinationCode: "BRC", departureAt: new Date("2026-05-17T10:00:00Z") },
-      { requestId: multiLegReq.id, legOrder: 3, origin: "Aeropuerto de Bariloche", originCode: "BRC", destination: "Aeroparque Jorge Newbery", destinationCode: "AEP", departureAt: new Date("2026-05-20T15:00:00Z") },
-    ],
-  });
+  for (const offer of specialOffers) {
+    await prisma.offer.create({ data: offer });
+  }
 
-  console.log("Multi-leg request created");
+  console.log("Special offers created");
   console.log("Seed complete!");
 }
 

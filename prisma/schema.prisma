@@ -68,55 +68,98 @@ model Operator {
 }
 
 model Aircraft {
-  id           String      @id @default(cuid())
-  operatorId   String
-  operator     Operator    @relation(fields: [operatorId], references: [id])
-  type         VehicleType
-  model        String
-  description  String?     @db.Text
-  capacity     Int
-  images       String[]
-  yearBuilt    Int?
-  registration String?
-  amenities    String[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  offers       Offer[]
-  bids         Bid[]
+  id              String      @id @default(cuid())
+  operatorId      String
+  operator        Operator    @relation(fields: [operatorId], references: [id])
+  type            VehicleType
+  model           String
+  description     String?     @db.Text
+  capacity        Int
+  images          String[]
+  yearBuilt       Int?
+  registration    String?
+  amenities       String[]
+  hourlyRate      Float       @default(0)
+  baseAirport     String      @default("SFN")
+  baseAirportName String      @default("San Fernando")
+  baseLat         Float?
+  baseLng         Float?
+  cruiseSpeedKmh  Int         @default(600)
+  minBookingHours Float       @default(1)
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  offers          Offer[]
+  bids            Bid[]
+  bookings        Booking[]
+  blockedDates    AircraftBlockedDate[]
+  locations       AircraftLocation[]
+}
+
+model AircraftBlockedDate {
+  id          String   @id @default(cuid())
+  aircraftId  String
+  aircraft    Aircraft @relation(fields: [aircraftId], references: [id], onDelete: Cascade)
+  date        DateTime @db.Date
+  reason      String?
+  createdAt   DateTime @default(now())
+  @@unique([aircraftId, date])
+  @@index([aircraftId])
+}
+
+model AircraftLocation {
+  id           String   @id @default(cuid())
+  aircraftId   String
+  aircraft     Aircraft @relation(fields: [aircraftId], references: [id], onDelete: Cascade)
+  date         DateTime @db.Date
+  airportCode  String
+  airportName  String
+  lat          Float?
+  lng          Float?
+  createdAt    DateTime @default(now())
+  @@unique([aircraftId, date])
+  @@index([aircraftId, date])
 }
 
 model Offer {
-  id              String        @id @default(cuid())
-  operatorId      String
-  operator        Operator      @relation(fields: [operatorId], references: [id])
-  aircraftId      String
-  aircraft        Aircraft      @relation(fields: [aircraftId], references: [id])
-  status          OfferStatus   @default(ACTIVE)
-  category        OfferCategory
-  vehicleType     VehicleType
-  origin          String
-  originCode      String?
-  originLat       Float?
-  originLng       Float?
-  destination     String?
-  destinationCode String?
-  destinationLat  Float?
-  destinationLng  Float?
-  departureAt     DateTime
-  returnAt        DateTime?
-  basePrice       Float
-  minPrice        Float
-  isEmptyLeg      Boolean       @default(false)
-  discountType    String?
-  discountRules   Json?
-  cancellationPolicy String?    @db.Text
-  notes           String?       @db.Text
-  slug            String        @unique
-  featured        Boolean       @default(false)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  bookings        Booking[]
-  legs            FlightLeg[]
+  id                 String        @id @default(cuid())
+  operatorId         String
+  operator           Operator      @relation(fields: [operatorId], references: [id])
+  aircraftId         String
+  aircraft           Aircraft      @relation(fields: [aircraftId], references: [id])
+  status             OfferStatus   @default(ACTIVE)
+  category           OfferCategory
+  vehicleType        VehicleType
+  origin             String
+  originCode         String?
+  originLat          Float?
+  originLng          Float?
+  destination        String?
+  destinationCode    String?
+  destinationLat     Float?
+  destinationLng     Float?
+  departureAt        DateTime
+  returnAt           DateTime?
+  basePrice          Float
+  minPrice           Float
+  isEmptyLeg         Boolean       @default(false)
+  isLastMinute       Boolean       @default(false)
+  isSharedFlight     Boolean       @default(false)
+  availableSeats     Int?
+  pricePerSeat       Float?
+  originalPrice      Float?
+  discountLabel      String?
+  urgencyLevel       String?
+  expiresAt          DateTime?
+  discountType       String?
+  discountRules      Json?
+  cancellationPolicy String?       @db.Text
+  notes              String?       @db.Text
+  slug               String        @unique
+  featured           Boolean       @default(false)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  bookings           Booking[]
   @@index([status, vehicleType])
   @@index([departureAt])
 }
@@ -125,6 +168,8 @@ model Booking {
   id                    String        @id @default(cuid())
   offerId               String?
   offer                 Offer?        @relation(fields: [offerId], references: [id])
+  aircraftId            String?
+  aircraft              Aircraft?     @relation(fields: [aircraftId], references: [id])
   bidId                 String?       @unique
   bid                   Bid?          @relation(fields: [bidId], references: [id])
   customerEmail         String
@@ -140,6 +185,7 @@ model Booking {
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
   chatRoom              ChatRoom?
+  legs                  FlightLeg[]
 }
 
 model FlightRequest {
@@ -170,20 +216,21 @@ model FlightRequest {
 }
 
 model FlightLeg {
-  id              String         @id @default(cuid())
-  offerId         String?
-  offer           Offer?         @relation(fields: [offerId], references: [id], onDelete: Cascade)
-  requestId       String?
-  request         FlightRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  legOrder        Int
-  origin          String
-  originCode      String?
-  destination     String
-  destinationCode String?
-  departureAt     DateTime
-  arrivalAt       DateTime?
-  createdAt       DateTime       @default(now())
-  @@index([offerId, legOrder])
+  id                   String         @id @default(cuid())
+  bookingId            String?
+  booking              Booking?       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  requestId            String?
+  request              FlightRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  legOrder             Int
+  origin               String
+  originCode           String?
+  destination          String
+  destinationCode      String?
+  departureAt          DateTime
+  estimatedDurationMin Int?
+  distanceKm           Float?
+  createdAt            DateTime       @default(now())
+  @@index([bookingId, legOrder])
   @@index([requestId, legOrder])
 }
 

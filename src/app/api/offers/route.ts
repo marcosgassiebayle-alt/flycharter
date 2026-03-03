@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { CreateOfferSchema } from "@/lib/validators";
 import { generateSlug } from "@/lib/utils";
 
 export async function GET(request: Request) {
@@ -16,6 +15,8 @@ export async function GET(request: Request) {
     const featured = url.searchParams.get("featured");
     const limit = url.searchParams.get("limit");
     const sortBy = url.searchParams.get("sortBy");
+    const type = url.searchParams.get("type"); // emptyLeg | lastMinute | shared
+    const special = url.searchParams.get("special"); // "true" = any special offer
 
     const where: Record<string, unknown> = {};
 
@@ -34,17 +35,36 @@ export async function GET(request: Request) {
     if (emptyLeg === "true") where.isEmptyLeg = true;
     if (featured === "true") where.featured = true;
 
+    // Special offer type filters
+    if (type === "emptyLeg") where.isEmptyLeg = true;
+    else if (type === "lastMinute") where.isLastMinute = true;
+    else if (type === "shared") where.isSharedFlight = true;
+
+    // Special = any of the special offer types
+    if (special === "true") {
+      where.OR = [
+        { isEmptyLeg: true },
+        { isLastMinute: true },
+        { isSharedFlight: true },
+      ];
+    }
+
     let orderBy: Record<string, string> = { departureAt: "asc" };
     if (sortBy === "price_asc") orderBy = { basePrice: "asc" };
     if (sortBy === "price_desc") orderBy = { basePrice: "desc" };
     if (sortBy === "date_asc") orderBy = { departureAt: "asc" };
     if (sortBy === "date_desc") orderBy = { departureAt: "desc" };
     if (sortBy === "newest") orderBy = { createdAt: "desc" };
+    if (sortBy === "urgent") orderBy = { departureAt: "asc" };
+    // Default for special offers: sort by soonest departure
+    if (special === "true" && !sortBy) orderBy = { departureAt: "asc" };
 
     const offers = await prisma.offer.findMany({
       where,
       include: {
-        aircraft: true,
+        aircraft: {
+          select: { id: true, model: true, capacity: true, images: true, hourlyRate: true },
+        },
         operator: {
           select: {
             id: true,
@@ -54,16 +74,29 @@ export async function GET(request: Request) {
             profileImage: true,
           },
         },
-        legs: {
-          orderBy: { legOrder: "asc" },
-        },
         _count: { select: { bookings: true } },
       },
       orderBy,
       take: limit ? parseInt(limit) : undefined,
     });
 
-    return NextResponse.json({ offers });
+    // Calculate urgency dynamically based on departureAt
+    const now = Date.now();
+    const offersWithUrgency = offers.map((offer) => {
+      const diffHours = (offer.departureAt.getTime() - now) / 3600000;
+      let dynamicUrgency: string | null = null;
+      if (diffHours > 0) {
+        if (diffHours <= 24) dynamicUrgency = "high";
+        else if (diffHours <= 48) dynamicUrgency = "medium";
+        else if (diffHours <= 72) dynamicUrgency = "low";
+      }
+      return {
+        ...offer,
+        urgencyLevel: dynamicUrgency ?? offer.urgencyLevel,
+      };
+    });
+
+    return NextResponse.json({ offers: offersWithUrgency });
   } catch (error) {
     console.error("Error fetching offers:", error);
     return NextResponse.json(
@@ -129,6 +162,13 @@ export async function POST(request: Request) {
         basePrice: offerData.basePrice,
         minPrice: offerData.minPrice || offerData.basePrice,
         isEmptyLeg: offerData.isEmptyLeg || false,
+        isLastMinute: offerData.isLastMinute || false,
+        isSharedFlight: offerData.isSharedFlight || false,
+        availableSeats: offerData.availableSeats ?? null,
+        pricePerSeat: offerData.pricePerSeat ?? null,
+        originalPrice: offerData.originalPrice ?? null,
+        discountLabel: offerData.discountLabel ?? null,
+        expiresAt: offerData.expiresAt ? new Date(offerData.expiresAt) : null,
         discountType: offerData.discountType,
         discountRules: offerData.discountRules,
         cancellationPolicy: offerData.cancellationPolicy,
@@ -142,22 +182,6 @@ export async function POST(request: Request) {
         },
       },
     });
-
-    // Create flight legs if provided
-    if (Array.isArray(offerData.legs) && offerData.legs.length > 0) {
-      await prisma.flightLeg.createMany({
-        data: offerData.legs.map((leg: { origin: string; originCode?: string; destination: string; destinationCode?: string; departureAt: string; arrivalAt?: string }, i: number) => ({
-          offerId: offer.id,
-          legOrder: i + 1,
-          origin: leg.origin,
-          originCode: leg.originCode || null,
-          destination: leg.destination,
-          destinationCode: leg.destinationCode || null,
-          departureAt: new Date(leg.departureAt),
-          arrivalAt: leg.arrivalAt ? new Date(leg.arrivalAt) : null,
-        })),
-      });
-    }
 
     return NextResponse.json(offer, { status: 201 });
   } catch (error) {
